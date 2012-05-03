@@ -1,13 +1,13 @@
 Gem::Specification.new do |s|
   s.name = "heroku-rails-saas"
-  s.version = "0.1.3"
+  s.version = "0.1.4"
 
   s.authors = [ "Elijah Miller", "Glenn Roberts", "Jacques Crocker", "Lance Sanchez"]
 
   s.summary = "Deployment and configuration tools for Heroku/Rails"
   s.description = "Manage multiple Heroku instances/apps for a single Rails app using Rake."
 
-  s.email = "railsjedi@gmail.com"
+  s.email = "lance.sanchez@gmail.com"
   s.homepage = "http://github.com/darkbushido/heroku-rails-saas"
   s.rubyforge_project = "none"
 
