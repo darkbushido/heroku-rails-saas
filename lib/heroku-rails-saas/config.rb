@@ -42,7 +42,7 @@ module HerokuRailsSaas
     # Allows for `rake <app:env> [<app:env>] <command>`
     def app_name_on_heroku(string)
       app_name, env = string.split(SEPERATOR)
-      apps[app_name][env] 
+      apps[app_name][env]
     end
 
     # return all enviromnets in this format app:env
@@ -53,7 +53,7 @@ module HerokuRailsSaas
     end
 
     # return all environments e.g. staging, production, development
-    def all_environments 
+    def all_environments
       environments = apps.each_with_object([]) do |(app, hsh), arr|
         hsh.each { |env, app_name| arr << env }
       end
@@ -74,7 +74,7 @@ module HerokuRailsSaas
         'heroku '
       end
     end
-    
+
     # pull out the config setting hash for a particular app environment
     def config(app_env)
       name, env = app_env.split(SEPERATOR)

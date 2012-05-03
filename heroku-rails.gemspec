@@ -3,7 +3,7 @@ Gem::Specification.new do |s|
   s.version = "0.1.3"
 
   s.authors = [ "Elijah Miller", "Glenn Roberts", "Jacques Crocker", "Lance Sanchez"]
-              
+
   s.summary = "Deployment and configuration tools for Heroku/Rails"
   s.description = "Manage multiple Heroku instances/apps for a single Rails app using Rake."
 

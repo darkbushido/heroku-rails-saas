@@ -18,8 +18,8 @@ module HerokuRailsSaas
 
     # use all environments or filter out production environments
     def all_environments(filter=false)
-      @environments = @config.app_environments 
-      filter ? @environments.reject! { |app| app[production_regex] } : @environments
+      @environments = @config.app_environments
+      filter ? @environments.reject! { |app| app[regex_for(:production)] } : @environments
     end
 
     # use all heroku apps filtered by environments
@@ -119,7 +119,7 @@ module HerokuRailsSaas
         new_config.each do |new_key, new_val|
           add_config[new_key] = new_val unless existing_config[new_key] == new_val
         end
-        
+
         # persist the changes onto heroku
         unless add_config.empty?
           # add the config
@@ -269,10 +269,12 @@ module HerokuRailsSaas
       raise "*** command \"#{args.join ' '}\" failed" unless system(*args)
     end
 
-    private
-
-    def production_regex
-       Regexp.new("#{@config.class::SEPERATOR}(production|prod|live)")
+    def regex_for env
+      match = case env
+        when :production then "production|prod|live"
+        when :staging    then "staging|stage"
+      end
+      Regexp.new("#{@config.class::SEPERATOR}(#{match})")
     end
   end
 end

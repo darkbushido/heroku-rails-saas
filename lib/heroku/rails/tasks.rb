@@ -75,10 +75,10 @@ namespace :heroku do
       Rake::Task["heroku:before_each_deploy"].invoke(app_name)
 
       cmd = HEROKU_CONFIG.cmd(heroku_env)
-      if heroku_env == "production"
-        branch = `git branch`.scan(/^\* (.*)\n/).flatten.first.to_s
+
+      if heroku_env[HEROKU_RUNNER.regex_for(:production)]
         all_tags = `git tag`
-        target_tag = `git describe --tags --abbrev=0`.chomp # Set lastest tag as default
+        target_tag = `git describe --tags --abbrev=0`.chomp # Set latest tag as default
 
         begin
           puts "\nGit tags:"
@@ -93,26 +93,27 @@ namespace :heroku do
               puts "\n\nInvalid git tag!"
               invalid = true
             end
-          end  
+          end
         end while invalid
+        puts "Unable to determine the tag to deploy." and exit(1) if target_tag.empty?
+        to_deploy = "#{target_tag}^{}"
       else
-        branch = `git branch`.scan(/^\* (.*)\n/).flatten.first.to_s
-        if branch.present?
-          @git_push_arguments ||= []
-          @git_push_arguments << '--force'
-          to_deploy = "#{target_tag}^{}"
-          system_with_echo "git push #{repo} #{@git_push_arguments.join(' ')} #{branch}:master"
-          system_with_echo "heroku maintenance:on --app #{app_name}"
-          Rake::Task["heroku:setup:config"].invoke
-          system_with_echo "#{cmd} rake --app #{app_name} db:migrate && heroku restart --app #{app_name}"
-          system_with_echo "heroku maintenance:off --app #{app_name}"
-        else
-          puts "Unable to determine the current git branch, please checkout the branch you'd like to deploy."
-
-          exit(1)
-        end
+        to_deploy = `git branch`.scan(/^\* (.*)\n/).flatten.first.to_s
+        puts "Unable to determine the current git branch, please checkout the branch you'd like to deploy." and exit(1) if to_deploy.empty?
       end
-      
+
+      @git_push_arguments ||= []
+      @git_push_arguments << '--force'
+
+      system_with_echo "git push #{repo} #{@git_push_arguments.join(' ')} #{to_deploy}:master"
+
+      system_with_echo "heroku maintenance:on --app #{app_name}"
+
+      Rake::Task["heroku:setup:config"].invoke
+      system_with_echo "#{cmd} rake --app #{app_name} db:migrate && heroku restart --app #{app_name}"
+
+      system_with_echo "heroku maintenance:off --app #{app_name}"
+
       Rake::Task["heroku:after_each_deploy"].reenable
       Rake::Task["heroku:after_each_deploy"].invoke(app_name)
       puts "\n"
