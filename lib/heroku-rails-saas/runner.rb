@@ -37,9 +37,9 @@ module HerokuRailsSaas
       each_heroku_app do |heroku_env, app_name, repo|
         next if @my_apps.include?(app_name)
 
-        stack = @config.stack(heroku_env)
-        stack_option = " --stack #{stack}" if stack.to_s.size > 0
-        creation_command "heroku create #{app_name}#{stack_option} --remote #{app_name}"
+        options = { :remote => app_name, :stack => @config.stack(heroku_env) }
+
+        @heroku.create(app_name, options)
       end
     end
 
@@ -128,7 +128,9 @@ module HerokuRailsSaas
             set_config << "#{key}='#{val}' "
           end
           creation_command "heroku config:add #{set_config} --app #{app_name}"
-          system_with_echo("#{@config.cmd(app_env)} rails runner 'Rails.cache.clear' --app #{app_name}")
+
+          # This fails on a newly created app
+          system_with_echo("#{@config.cmd(app_env)} \"#{rails_cli(:runner)} 'Rails.cache.clear'\" --app #{app_name}")
         end
       end
     end
@@ -276,5 +278,10 @@ module HerokuRailsSaas
       end
       Regexp.new("#{@config.class::SEPERATOR}(#{match})")
     end
+
+    def rails_cli script
+      Rails::VERSION::MAJOR < 3 ? ".script/#{script}" : "rails #{script}"
+    end
+
   end
 end
