@@ -22,6 +22,12 @@ module HerokuRailsSaas
         name, env = app_env.split(SEPERATOR)
         env
       end
+      
+      def extract_name_from(app_env)
+        name, env = app_env.split(SEPERATOR)
+        name
+      end
+      
     end
 
     attr_accessor :settings

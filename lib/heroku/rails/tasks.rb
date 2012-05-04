@@ -230,11 +230,11 @@ namespace :heroku do
     desc "Pulls the database from heroku and stores it into db/dumps/"
     task :pull do
       HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-        system_with_echo "heroku pgdumps:capture --app #{app_name}"
-        dump = `heroku pgdumps --app #{app_name}`.split("\n").last.split(" ").first
+        system_with_echo "heroku pgbackups:capture --app #{app_name}"
+        dump = `heroku pgbackups --app #{app_name}`.split("\n").last.split(" ").first
         system_with_echo "mkdir -p #{HerokuRailsSaas::Config.root}/db/dumps"
         file = "#{HerokuRailsSaas::Config.root}/db/dumps/#{dump}.sql.gz"
-        url = `heroku pgdumps:url --app #{app_name} #{dump}`.chomp
+        url = `heroku pgbackups:url --app #{app_name} #{dump}`.chomp
         system_with_echo "wget", url, "-O", file
 
         # TODO: these are a bit distructive...
@@ -243,5 +243,31 @@ namespace :heroku do
         # system_with_echo "rake jobs:clear"
       end
     end
+    
+    desc "Resets a Non Production database"
+    task :reset do
+      HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
+        unless heroku_env[HEROKU_RUNNER.regex_for(:production)]
+          system_with_echo "heroku pg:reset DATABASE_URL --app #{app_name} --confirm #{app_name}"
+        else
+          puts "Will not reset the Production database"
+        end
+      end
+    end
+    
+    desc "Copies a database over a Non Production database"
+    task :copy,[ :source]  => :reset do |t, args|
+      HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
+        raise "missing source" unless HEROKU_CONFIG.app_name_on_heroku(args.source)
+          
+        unless heroku_env[HEROKU_RUNNER.regex_for(:production)]
+          source_app_name = HEROKU_CONFIG.app_name_on_heroku(args.source)
+          system_with_echo "heroku pgbackups:restore DATABASE_URL `heroku pgbackups:url --app #{source_app_name}` --app #{app_name} --confirm #{app_name}"
+        else
+          puts "Will not overwrite the Production database"
+        end
+      end
+    end
+
   end
 end
