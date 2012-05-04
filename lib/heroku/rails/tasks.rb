@@ -141,13 +141,6 @@ namespace :heroku do
   task :switch_environment do
   end
 
-  desc "Force deploys, migrates and restarts latest code"
-  task :force_deploy do
-    @git_push_arguments ||= []
-    @git_push_arguments << '--force'
-    Rake::Task["heroku:deploy"].execute
-  end
-
   desc "Captures a bundle on Heroku"
   task :capture do
     HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
