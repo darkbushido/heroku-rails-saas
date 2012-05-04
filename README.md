@@ -3,9 +3,8 @@ Heroku Rails SaaS
 
 Easier configuration and deployment of Rails apps on Heroku
 
-Configure all your Heroku enviroments via a YML file (config/heroku.yml) that defines all your environments, addons, and environment variables.
-Configure your app specific Heroku environment via a YML file (config/heroku/awesomeapp.yml) thats defines all your environments, addons, and 
-environment variables for awesomeapp.
+Configure all your Heroku environments via a YML file (config/heroku.yml) that defines all your environments, addons, scaling settings and environment variables.
+Configure your app specific Heroku environment via a YML file (config/heroku/awesomeapp.yml) thats defines all your environments, addons, scaling settings and environment variables for awesomeapp.
 
 ## Install
 
@@ -44,6 +43,10 @@ For all configuration settings
       - scheduler:standard
       # add any other addons here
 
+    scale:
+      web: 1
+      worker: 0
+
 For an app specific settings awesomeapp
 
     apps:
@@ -70,6 +73,13 @@ For an app specific settings awesomeapp
       - cron:daily
       - newrelic:bronze
 
+    scale:
+      production:
+        web: 3
+        worker: 2
+      staging:
+        web: 2
+        worker: 1
 
 ### Setting up Heroku
 
@@ -99,7 +109,7 @@ A special rake task 'all' is created that causes any further commands to
 execute on all heroku apps (Note: Any environment labeled `production` will not
 be included, you must explicitly state it).
 
-Futhermore there are rake task 'environments' created from environments in configs
+Furthermore there are rake task 'environments' created from environments in configs
 that causes any further commands to execute on all heroku apps.
 
     rake all:production heroku:info
@@ -120,6 +130,7 @@ A full list of tasks provided:
     rake heroku:remotes             # Add git remotes for all apps in this project
     rake heroku:migrate             # Migrates and restarts remote servers
     rake heroku:restart             # Restarts remote servers
+    rake heroku:scale               # Scales heroku processes
 
     rake heroku:setup               # runs all heroku setup scripts
     rake heroku:setup:addons        # sets up the heroku addons

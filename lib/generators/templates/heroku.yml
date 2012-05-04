@@ -33,6 +33,11 @@
 #   - cron:daily
 #   - newrelic:bronze
 
+# scale:
+#   production:
+#     web: 2
+#     worker: 1
+
 
 # The following are configuration settings formally under the :all key
 # for all apps and thier environments
@@ -50,3 +55,7 @@ collaborators:
 addons:
   - scheduler:standard
   # add any other addons here
+
+scale:
+  web: 1
+  worker: 0

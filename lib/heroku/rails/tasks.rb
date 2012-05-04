@@ -177,6 +177,11 @@ namespace :heroku do
     end
   end
 
+  desc "Scales heroku processes"
+  task :scale do
+    HEROKU_RUNNER.scale
+  end
+
   namespace :setup do
 
     desc "Creates the apps on Heroku"

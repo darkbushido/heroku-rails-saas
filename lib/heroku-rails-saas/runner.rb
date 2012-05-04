@@ -204,6 +204,22 @@ module HerokuRailsSaas
       end
     end
 
+    def scale
+      authorize unless @heroku
+      each_heroku_app do |heroku_env, app_name, repo|
+        scaling = @config.scale(heroku_env)
+        scaling.each do |process_name, instance_count|
+          begin
+            puts "Scaling app #{app_name} process #{process_name} to #{instance_count}"
+            response = @heroku.ps_scale(app_name, {:type => process_name, :qty => instance_count })
+            puts "Response: #{response}"
+          rescue => e
+            puts "Failed to scale #{app_name}. Error: #{e.inspect}"
+          end
+        end
+      end
+    end
+
     # cycles through each configured heroku app
     # yields the environment name, the app name, and the repo url
     def each_heroku_app

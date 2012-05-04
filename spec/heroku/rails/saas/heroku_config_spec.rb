@@ -153,5 +153,37 @@ module HerokuRailsSaas
       end
     end
 
+    describe "#scale" do
+      context "mediocrapp" do
+        it "should include the scaling settings defined in 'all'" do
+          @scale = @config.scale('mediocreapp')
+          @scale['web'].should_not be_nil
+          @scale['worker'].should_not be_nil
+          @scale['web'].should eql 1
+          @scale['worker'].should eql 0
+        end
+      end
+
+      context "staging environment" do
+        it "should include the scaling settings defined in 'staging'" do
+          @scale = @config.scale('awesomeapp:staging')
+          @scale['web'].should_not be_nil
+          @scale['worker'].should_not be_nil
+          @scale['web'].should eql 2
+          @scale['worker'].should eql 1
+        end
+      end
+
+      context "production environment" do
+        it "should include the scaling settings defined in 'production'" do
+          @scale = @config.scale('awesomeapp:production')
+          @scale['web'].should_not be_nil
+          @scale['worker'].should_not be_nil
+          @scale['web'].should eql 3
+          @scale['worker'].should eql 2
+        end
+      end
+    end
+
   end
 end

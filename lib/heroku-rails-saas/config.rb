@@ -89,6 +89,20 @@ module HerokuRailsSaas
       all.merge(merged_environment_configs)
     end
 
+    # pull out the scaling setting hash for a particular app environment
+    def scale(app_env)
+      name, env = app_env.split(SEPERATOR)
+      scaling = self.settings['scale'] || {}
+      all = scaling['all'] || {}
+
+      app_scaling = (scaling[name] && scaling[name].reject { |k,v| v.class == Hash }) || {}
+      # overwrite app scaling with the environment specific ones
+      merged_environment_scaling = app_scaling.merge((scaling[name] && scaling[name][env]) || {})
+
+      # overwrite all scaling with the environment specific ones
+      all.merge(merged_environment_scaling)
+    end
+
     # return a list of domains for a particular app environment
     def domains(app_env)
       name, env = app_env.split(SEPERATOR)

@@ -30,3 +30,11 @@ addons:
     # list production env specific addons here
     - ssl:piggyback
     - cron:daily
+
+scale:
+  production:
+    web: 3
+    worker: 2
+  staging:
+    web: 2
+    worker: 1
