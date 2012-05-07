@@ -1,4 +1,5 @@
 require 'active_support/core_ext/object/try'
+require 'erb'
 
 module HerokuRailsSaas
   class Config
