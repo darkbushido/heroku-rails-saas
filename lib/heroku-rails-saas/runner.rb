@@ -1,3 +1,4 @@
+require 'active_support/core_ext/object/blank'
 require 'heroku/client'
 
 module HerokuRailsSaas
@@ -223,7 +224,6 @@ module HerokuRailsSaas
     # cycles through each configured heroku app
     # yields the environment name, the app name, and the repo url
     def each_heroku_app
-
       if @config.apps.size == 0
         puts "\nNo heroku apps are configured. Run:
           rails generate heroku:config\n\n"

@@ -12,3 +12,8 @@ collaborators:
 domains:
   development:
     - "mediocreapp.com"
+
+scale:
+  development:
+    web: 1
+    worker: 0
