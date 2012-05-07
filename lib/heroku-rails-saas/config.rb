@@ -157,8 +157,7 @@ module HerokuRailsSaas
     end
 
     def aggregate_heroku_configs(config_files)
-      hsh = {}
-      config_files[:apps].each_with_object(hsh) { |file, h| h.rmerge!(parse_yml(file, :apps)) }
+      hsh = config_files[:apps].each_with_object({}) { |file, h| h.rmerge!(parse_yml(file, :apps)) }
       # overwrite all configs with the environment specific ones
       hsh.rmerge!(parse_yml(config_files[:default], :default))
     end
