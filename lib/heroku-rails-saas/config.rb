@@ -1,4 +1,4 @@
-require 'erb'
+require 'active_support/core_ext/object/try'
 
 module HerokuRailsSaas
   class Config
@@ -70,7 +70,7 @@ module HerokuRailsSaas
     def stack(app_env)
       name, env = app_env.split(SEPERATOR)
       stacks = self.settings['stacks'] || {}
-      (stacks[name] && stacks[name][env]) || stacks['all']
+      stacks[name].try("[]", env) || stacks['all']
     end
 
     def cmd(app_env)
@@ -113,8 +113,9 @@ module HerokuRailsSaas
     def domains(app_env)
       name, env = app_env.split(SEPERATOR)
       domains = self.settings['domains'] || {}
-      (domains[name] && domains[name][env]) || []
+      domains[name].try("[]", env) || []
     end
+
     # return a list of collaborators for a particular app environment
     def collaborators(app_env)
       app_setting_list('collaborators', app_env)
@@ -125,18 +126,17 @@ module HerokuRailsSaas
       app_setting_list('addons', app_env)
     end
 
-    protected
+    private
 
+    # Add app specific settings to the default ones defined in all
     def app_setting_list(setting_key, app_env)
       name, env = app_env.split(SEPERATOR)
       setting = self.settings[setting_key] || {}
-      all = setting['all'] || []
+      default = setting['all'] || []
 
-      # add in collaborators from app environment to the ones defined in all
-      (all + ((setting[name] && setting[name][env]) || [])).uniq
+      app_settings = setting[name].try("[]", env) || []
+      (default + app_settings).uniq
     end
-
-    private
 
     def parse_yml(config_filepath, options)
       if File.exists?(config_filepath)

@@ -34,5 +34,6 @@ Gem::Specification.new do |s|
 
   s.add_runtime_dependency "heroku", ">= 2.24.1"
   s.add_development_dependency "rspec", "~> 2.0"
+  s.add_development_dependency "activesupport"
 end
 
