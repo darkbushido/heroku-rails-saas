@@ -1,3 +1,4 @@
+require 'active_support/core_ext/object/try'
 require 'erb'
 
 module HerokuRailsSaas
@@ -44,6 +45,14 @@ module HerokuRailsSaas
       apps.keys
     end
 
+    def cmd(app_env)
+      if self.stack(app_env) =~ /cedar/i
+        'heroku run '
+      else
+        'heroku '
+      end
+    end
+
     # Returns the app name on heroku froma string format like so: `app:env`
     # Allows for `rake <app:env> [<app:env>] <command>`
     def app_name_on_heroku(string)
@@ -70,73 +79,62 @@ module HerokuRailsSaas
     def stack(app_env)
       name, env = app_env.split(SEPERATOR)
       stacks = self.settings['stacks'] || {}
-      (stacks[name] && stacks[name][env]) || stacks['all']
-    end
-
-    def cmd(app_env)
-      if self.stack(app_env) =~ /cedar/i
-        'heroku run '
-      else
-        'heroku '
-      end
-    end
-
-    # pull out the config setting hash for a particular app environment
-    def config(app_env)
-      name, env = app_env.split(SEPERATOR)
-      config = self.settings['config'] || {}
-      all = config['all'] || {}
-
-      app_configs = (config[name] && config[name].reject { |k,v| v.class == Hash }) || {}
-      # overwrite app configs with the environment specific ones
-      merged_environment_configs = app_configs.merge((config[name] && config[name][env]) || {})
-
-      # overwrite all configs with the environment specific ones
-      all.merge(merged_environment_configs)
-    end
-
-    # pull out the scaling setting hash for a particular app environment
-    def scale(app_env)
-      name, env = app_env.split(SEPERATOR)
-      scaling = self.settings['scale'] || {}
-      all = scaling['all'] || {}
-
-      app_scaling = (scaling[name] && scaling[name].reject { |k,v| v.class == Hash }) || {}
-      # overwrite app scaling with the environment specific ones
-      merged_environment_scaling = app_scaling.merge((scaling[name] && scaling[name][env]) || {})
-
-      # overwrite all scaling with the environment specific ones
-      all.merge(merged_environment_scaling)
+      stacks[name].try("[]", env) || stacks['all']
     end
 
     # return a list of domains for a particular app environment
     def domains(app_env)
       name, env = app_env.split(SEPERATOR)
       domains = self.settings['domains'] || {}
-      (domains[name] && domains[name][env]) || []
+      domains[name].try("[]", env) || []
     end
+
+    # pull out the config setting hash for a particular app environment
+    def config(app_env)
+      app_setting_hash("config", app_env)
+    end
+
+    # pull out the scaling setting hash for a particular app environment
+    def scale(app_env)
+      app_setting_hash("scale", app_env)
+    end
+
+
     # return a list of collaborators for a particular app environment
     def collaborators(app_env)
-      app_setting_list('collaborators', app_env)
+      app_setting_array('collaborators', app_env)
     end
 
     # return a list of addons for a particular app environment
     def addons(app_env)
-      app_setting_list('addons', app_env)
-    end
-
-    protected
-
-    def app_setting_list(setting_key, app_env)
-      name, env = app_env.split(SEPERATOR)
-      setting = self.settings[setting_key] || {}
-      all = setting['all'] || []
-
-      # add in collaborators from app environment to the ones defined in all
-      (all + ((setting[name] && setting[name][env]) || [])).uniq
+      app_setting_array('addons', app_env)
     end
 
     private
+
+    # Add app specific settings to the default ones defined in all for an array listing
+    def app_setting_array(setting_key, app_env)
+      name, env = app_env.split(SEPERATOR)
+      setting = self.settings[setting_key] || {}
+      default = setting['all'] || []
+
+      app_settings = setting[name].try("[]", env) || []
+      (default + app_settings).uniq
+    end
+
+    # Add app specific settings to the default ones defined in all for a hash listing
+    def app_setting_hash(setting_key, app_env)
+      name, env = app_env.split(SEPERATOR)
+      config = self.settings[setting_key] || {}
+      all = config['all'] || {}
+
+      app_configs = (config[name] && config[name].reject { |k,v| v.class == Hash }) || {}
+      # overwrite app settings with the environment specific ones
+      merged_environment_configs = app_configs.merge((config[name] && config[name][env]) || {})
+
+      # overwrite all settings with the environment specific ones
+      all.merge(merged_environment_configs)
+    end
 
     def parse_yml(config_filepath, options)
       if File.exists?(config_filepath)
@@ -157,8 +155,7 @@ module HerokuRailsSaas
     end
 
     def aggregate_heroku_configs(config_files)
-      hsh = {}
-      config_files[:apps].each_with_object(hsh) { |file, h| h.rmerge!(parse_yml(file, :apps)) }
+      hsh = config_files[:apps].each_with_object({}) { |file, h| h.rmerge!(parse_yml(file, :apps)) }
       # overwrite all configs with the environment specific ones
       hsh.rmerge!(parse_yml(config_files[:default], :default))
     end

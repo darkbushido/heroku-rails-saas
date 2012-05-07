@@ -156,7 +156,7 @@ module HerokuRailsSaas
     describe "#scale" do
       context "mediocrapp" do
         it "should include the scaling settings defined in 'all'" do
-          @scale = @config.scale('mediocreapp')
+          @scale = @config.scale('mediocreapp:development')
           @scale['web'].should_not be_nil
           @scale['worker'].should_not be_nil
           @scale['web'].should eql 1
