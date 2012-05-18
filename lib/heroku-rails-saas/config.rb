@@ -53,6 +53,10 @@ module HerokuRailsSaas
       end
     end
 
+    def rails_cli script
+      Rails::VERSION::MAJOR < 3 ? ".script/#{script}" : "rails #{script}"
+    end
+    
     # Returns the app name on heroku froma string format like so: `app:env`
     # Allows for `rake <app:env> [<app:env>] <command>`
     def app_name_on_heroku(string)

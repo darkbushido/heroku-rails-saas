@@ -75,7 +75,7 @@ namespace :heroku do
       Rake::Task["heroku:before_each_deploy"].invoke(app_name)
 
       cmd = HEROKU_CONFIG.cmd(heroku_env)
-
+      
       if heroku_env[HEROKU_RUNNER.regex_for(:production)]
         all_tags = `git tag`
         target_tag = `git describe --tags --abbrev=0`.chomp # Set latest tag as default
@@ -110,8 +110,12 @@ namespace :heroku do
       system_with_echo "heroku maintenance:on --app #{app_name}"
 
       Rake::Task["heroku:setup:config"].invoke
-      system_with_echo "#{cmd} rake --app #{app_name} db:migrate && heroku restart --app #{app_name}"
+      system_with_echo "#{cmd} rake --app #{app_name} db:migrate"
 
+      system_with_echo "#{cmd} \"#{HEROKU_CONFIG.rails_cli(:runner)} 'Rails.cache.clear'\" --app #{app_name}"
+      
+      system_with_echo "heroku restart --app #{app_name}"
+      
       system_with_echo "heroku maintenance:off --app #{app_name}"
 
       Rake::Task["heroku:after_each_deploy"].reenable
