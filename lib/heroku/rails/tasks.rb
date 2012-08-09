@@ -102,8 +102,7 @@ namespace :heroku do
         puts "Unable to determine the current git branch, please checkout the branch you'd like to deploy." and exit(1) if to_deploy.empty?
       end
 
-      @git_push_arguments ||= []
-      @git_push_arguments << '--force'
+      @git_push_arguments ||= ['--force']
 
       system_with_echo "git push #{repo} #{@git_push_arguments.join(' ')} #{to_deploy}:master"
 
@@ -237,7 +236,7 @@ namespace :heroku do
         system_with_echo "heroku pgbackups:capture --app #{app_name}"
         dump = `heroku pgbackups --app #{app_name}`.split("\n").last.split(" ").first
         system_with_echo "mkdir -p #{HerokuRailsSaas::Config.root}/db/dumps"
-        file = "#{HerokuRailsSaas::Config.root}/db/dumps/#{dump}.sql.gz"
+        file = "#{HerokuRailsSaas::Config.root}/db/dumps/#{app_name}-#{dump}.sql.gz"
         url = `heroku pgbackups:url --app #{app_name} #{dump}`.chomp
         system_with_echo "wget", url, "-O", file
 
