@@ -1,11 +1,14 @@
 require "bundler"
 Bundler.setup
 
-require 'rake'
-require 'rake/gempackagetask'
+# require 'rake'
+# require 'rake/gempackagetask'
+
+require 'rubygems'
+require 'rubygems/package_task'
 
 gemspec = eval(File.read('heroku-rails.gemspec'))
-Rake::GemPackageTask.new(gemspec) do |pkg|
+Gem::PackageTask.new(gemspec) do |pkg|
   pkg.gem_spec = gemspec
 end
 
@@ -19,19 +22,19 @@ task :release => :gem do
   system "gem push pkg/#{gemspec.name}-#{gemspec.version}.gem"
 end
 
-require "rspec"
+# require "rspec"
 require "rspec/core/rake_task"
 
-Rspec::Core::RakeTask.new(:spec) do |spec|
+RSpec::Core::RakeTask.new(:spec) do |spec|
   spec.pattern = "spec/**/*_spec.rb"
 end
 
-Rspec::Core::RakeTask.new('spec:progress') do |spec|
+RSpec::Core::RakeTask.new('spec:progress') do |spec|
   spec.rspec_opts = %w(--format progress)
   spec.pattern = "spec/**/*_spec.rb"
 end
 
-require "rake/rdoctask"
+require 'rdoc/task'
 Rake::RDocTask.new do |rdoc|
   rdoc.rdoc_dir = "rdoc"
   rdoc.title = "Heroku Rails SaaS #{gemspec.version}"

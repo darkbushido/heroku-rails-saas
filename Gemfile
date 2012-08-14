@@ -1,7 +1,14 @@
 source :rubygems
 gemspec
 
-gem "ruby-debug", :platforms => :mri_18
-gem "ruby-debug19", :platforms => :mri_19
+gem "rake"
+group :development, :test do
+   gem "rdoc", '~> 3.12'
+end
 
-gem "autotest", ">= 0"
+group :test do
+  gem "ruby-debug", :platforms => :mri_18
+  gem "ruby-debug19", :platforms => :mri_19
+  
+  gem "rspec"
+end
