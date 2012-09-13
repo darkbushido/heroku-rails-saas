@@ -1,9 +1,12 @@
 require 'heroku-rails-saas'
 
-HEROKU_CONFIG_FILE = File.join(HerokuRailsSaas::Config.root, 'config', 'heroku.yml')
-HEROKU_APP_SPECIFIC_CONFIG_FILES = Dir.glob("#{File.join(HerokuRailsSaas::Config.root, 'config', 'heroku')}/*.yml")
-HEROKU_CONFIG = HerokuRailsSaas::Config.new({:default => HEROKU_CONFIG_FILE, :apps => HEROKU_APP_SPECIFIC_CONFIG_FILES})
-HEROKU_RUNNER = HerokuRailsSaas::Runner.new(HEROKU_CONFIG)
+# Suppress warnings from ruby when trying to redefine a constant, typically due to reloding of Rails.
+silence_warnings do
+  HEROKU_CONFIG_FILE = File.join(HerokuRailsSaas::Config.root, 'config', 'heroku.yml')
+  HEROKU_APP_SPECIFIC_CONFIG_FILES = Dir.glob("#{File.join(HerokuRailsSaas::Config.root, 'config', 'heroku')}/*.yml")
+  HEROKU_CONFIG = HerokuRailsSaas::Config.new({:default => HEROKU_CONFIG_FILE, :apps => HEROKU_APP_SPECIFIC_CONFIG_FILES})
+  HEROKU_RUNNER = HerokuRailsSaas::Runner.new(HEROKU_CONFIG)
+end
 
 # create all the environment specific tasks
 (HEROKU_CONFIG.apps).each do |app, hsh|

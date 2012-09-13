@@ -189,6 +189,11 @@ Homepage:: <https://github.com/darkbushido/heroku-rails-saas>
 
 Issue Tracker:: <http://github.com/darkbushido/heroku-rails-saas/issues>
 
+### Heroku Rails SaaS Contributors
+
+* Lance Sanchez (lance.sanchez@gmail.com)
+* Chris Trinh (chris.chtrinh@gmail.com)
+
 ### License
 
 License:: Copyright (c) 2012 Lance Sanchez <lance.sanchez@gmail.com> released under the MIT license.
