@@ -254,7 +254,7 @@ namespace :heroku do
     task :reset do
       HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
         unless heroku_env[HEROKU_RUNNER.regex_for(:production)]
-          system_with_echo "heroku pg:reset DATABASE_URL --app #{app_name} --confirm #{app_name}"
+          system_with_echo "heroku pg:reset DATABASE --app #{app_name} --confirm #{app_name}"
         else
           puts "Will not reset the Production database"
         end
@@ -268,7 +268,7 @@ namespace :heroku do
           
         unless heroku_env[HEROKU_RUNNER.regex_for(:production)]
           source_app_name = HEROKU_CONFIG.app_name_on_heroku(args.source)
-          system_with_echo "heroku pgbackups:restore DATABASE_URL `heroku pgbackups:url --app #{source_app_name}` --app #{app_name} --confirm #{app_name}"
+          system_with_echo "heroku pgbackups:restore DATABASE `heroku pgbackups:url --app #{source_app_name}` --app #{app_name} --confirm #{app_name}"
         else
           puts "Will not overwrite the Production database"
         end
