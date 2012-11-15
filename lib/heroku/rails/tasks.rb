@@ -236,7 +236,7 @@ namespace :heroku do
     desc "Pulls the database from heroku and stores it into db/dumps/"
     task :pull do
       HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-        system_with_echo "heroku pgbackups:capture --app #{app_name}"
+        system_with_echo "heroku pgbackups:capture  --expire --app #{app_name}"
         dump = `heroku pgbackups --app #{app_name}`.split("\n").last.split(" ").first
         system_with_echo "mkdir -p #{HerokuRailsSaas::Config.root}/db/dumps"
         file = "#{HerokuRailsSaas::Config.root}/db/dumps/#{app_name}-#{dump}.sql.gz"
