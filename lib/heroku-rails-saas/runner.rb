@@ -77,27 +77,23 @@ module HerokuRailsSaas
 
     def setup_collaborators
       each_heroku_app do |local_name, remote_name|
-        puts "Setting #{Helper.green('collaborators')}... "
         __setup_collaborators__(local_name, remote_name)
       end
     end
 
     def setup_addons
-      puts "Setting #{Helper.green('addons')}... "
       each_heroku_app do |local_name, remote_name|
         __setup_addons__(local_name, remote_name)
       end
     end
 
     def setup_config
-      puts "Setting #{Helper.green('config')}... "
       each_heroku_app do |local_name, remote_name|
         __setup_config__(local_name, remote_name)
       end
     end
 
     def setup_domains
-      puts "Setting #{Helper.green('domains')}... "
       each_heroku_app do |local_name, remote_name|
         __setup_domains__(local_name, remote_name)
       end
@@ -133,7 +129,8 @@ module HerokuRailsSaas
           puts "ERROR deploying #{Helper.yellow(remote_name)}:"
           puts Helper.red(error.message)
           continue = false
-        ensure          Rake::Task["heroku:ensure_each_deploy"].reenable
+        ensure
+          Rake::Task["heroku:ensure_each_deploy"].reenable
           Rake::Task["heroku:ensure_each_deploy"].invoke(local_name, remote_name, configs)
         end
 
@@ -256,6 +253,8 @@ module HerokuRailsSaas
     #
   protected
     def __setup_collaborators__(local_name, remote_name)
+      puts "Setting #{Helper.green('collaborators')}... "
+
       remote_collaborators = @heroku.get_collaborators(remote_name).map { |collaborator| collaborator["email"] }
       local_collaborators  = @config.collaborators(local_name)
 
@@ -265,6 +264,8 @@ module HerokuRailsSaas
     end
 
     def __setup_addons__(local_name, remote_name)
+      puts "Setting #{Helper.green('addons')}... "
+
       remote_addons = @heroku.get_addons(remote_name).map { |addon| addon["name"] }
       local_addons  = @config.addons(local_name)
 
@@ -277,6 +278,8 @@ module HerokuRailsSaas
     end
 
     def __setup_config__(local_name, remote_name)
+      puts "Setting #{Helper.green('config')}... "
+
       remote_configs = @heroku.get_config_vars(remote_name)
       local_configs = @config.config(local_name)
 
@@ -305,6 +308,8 @@ module HerokuRailsSaas
     end
 
     def __setup_domains__(local_name, remote_name)
+      puts "Setting #{Helper.green('domains')}... "
+
       remote_domains = @heroku.get_domains(remote_name).map { |domain| domain["domain"] }
       local_domains  = @config.domains(local_name)
       add_domains, delete_domains = self.class.deltas(local_domains, remote_domains)
