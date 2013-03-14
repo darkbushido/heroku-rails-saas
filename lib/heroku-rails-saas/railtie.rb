@@ -1,3 +1,6 @@
+require_relative 'config'
+require_relative 'runner'
+
 module HerokuRailsSaas
   class Railtie < ::Rails::Railtie
     rake_tasks do

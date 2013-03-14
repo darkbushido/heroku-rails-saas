@@ -1,8 +1,8 @@
 Gem::Specification.new do |s|
   s.name = "heroku-rails-saas"
-  s.version = "0.1.6"
+  s.version = "0.1.7"
 
-  s.authors = [ "Elijah Miller", "Glenn Roberts", "Jacques Crocker", "Lance Sanchez"]
+  s.authors = [ "Elijah Miller", "Glenn Roberts", "Jacques Crocker", "Lance Sanchez", "Chris Trinh"]
 
   s.summary = "Deployment and configuration tools for Heroku/Rails"
   s.description = "Manage multiple Heroku instances/apps for a single Rails app using Rake."
@@ -32,8 +32,8 @@ Gem::Specification.new do |s|
     "CHANGELOG"
   ]
 
-  s.add_runtime_dependency "heroku", ">= 2.24.1"
+  s.add_runtime_dependency "heroku-api", "~> 0.3.8"
+  s.add_runtime_dependency "netrc", "~> 0.7.7"
   s.add_development_dependency "rspec", "~> 2.0"
   s.add_development_dependency "activesupport"
 end
-

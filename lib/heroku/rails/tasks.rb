@@ -1,5 +1,8 @@
 require 'heroku-rails-saas'
 
+# Get callback-like rake task to step into the deploy process.
+import File.join(File.dirname(__FILE__), '../../generators/templates/heroku.rake')
+
 # Suppress warnings from ruby when trying to redefine a constant, typically due to reloding of Rails.
 silence_warnings do
   HEROKU_CONFIG_FILE = File.join(HerokuRailsSaas::Config.root, 'config', 'heroku.yml')
@@ -11,15 +14,13 @@ end
 # create all the environment specific tasks
 (HEROKU_CONFIG.apps).each do |app, hsh|
   hsh.each do |env, heroku_env|
-    app_name = HerokuRailsSaas::Config.app_name(app, env)
-    desc "Select #{app_name} Heroku app for later commands"
-    task app_name do
-      # callback switch_environment
-      @heroku_app = {:env => heroku_env, :app_name => app_name}
+    local_name = HerokuRailsSaas::Config.local_name(app, env)
+    desc "Select #{local_name} Heroku app for later commands"
+    task local_name do
       Rake::Task["heroku:switch_environment"].reenable
       Rake::Task["heroku:switch_environment"].invoke
 
-      HEROKU_RUNNER.add_environment(app_name)
+      HEROKU_RUNNER.add_app(local_name)
     end
   end
 end
@@ -29,151 +30,46 @@ task :all do
   HEROKU_RUNNER.all_environments(true)
 end
 
-(HEROKU_CONFIG.all_environments).each do |env|
-  desc "Select all Heroku apps in #{env} environment"
-  task "all:#{env}" do
-    HEROKU_RUNNER.environments(env)
+(HEROKU_CONFIG.all_environments).each do |environment|
+  desc "Select all Heroku apps in #{environment} environment"
+  task "all:#{environment}" do
+    HEROKU_RUNNER.add_environment(environment)
   end
 end
 
 namespace :heroku do
-  def system_with_echo(*args)
-    HEROKU_RUNNER.system_with_echo(*args)
-  end
-
   desc 'Add git remotes for all apps in this project'
   task :remotes do
     HEROKU_RUNNER.all_environments
     HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-      system_with_echo("git remote add #{app_name} #{repo}")
+      system("git remote add #{app_name} #{repo}")
     end
   end
 
   desc 'Lists configured apps'
   task :apps do
     HEROKU_RUNNER.all_environments
-    puts "\n"
-    HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-      puts "#{heroku_env} maps to the Heroku app #{app_name} located at:"
-      puts "  #{repo}"
-      puts
-    end
+    HEROKU_RUNNER.apps
+  end
+
+  desc "Run command on the heroku app (e.g. rake task)"
+  task :exec, :command do |t, args|
+    HEROKU_RUNNER.run(args[:command])
   end
 
   desc "Get remote server information on the heroku app"
   task :info do
-    HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-      system_with_echo "heroku info --app #{app_name}"
-      puts "\n"
-    end
+    HEROKU_RUNNER.info
   end
 
   desc "Deploys, migrates and restarts latest git tag"
   task :deploy => "heroku:before_deploy" do |t, args|
-    HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-      puts "\n\nDeploying to #{app_name}..."
-      # set the current heroku_app so that callbacks can read the data
-      @heroku_app = {:env => heroku_env, :app_name => app_name, :repo => repo}
-      Rake::Task["heroku:before_each_deploy"].reenable
-      Rake::Task["heroku:before_each_deploy"].invoke(app_name)
-
-      cmd = HEROKU_CONFIG.cmd(heroku_env)
-      
-      if heroku_env[HEROKU_RUNNER.regex_for(:production)]
-        all_tags = `git tag`
-        target_tag = `git describe --tags --abbrev=0`.chomp # Set latest tag as default
-
-        begin
-          puts "\nGit tags:"
-          puts all_tags
-          print "\nPlease enter a tag to deploy (or hit Enter for \"#{target_tag}\"): "
-          input_tag = STDIN.gets.chomp
-          if input_tag.present?
-            if all_tags[/^#{input_tag}\n/].present?
-              target_tag = input_tag
-              invalid = false
-            else
-              puts "\n\nInvalid git tag!"
-              invalid = true
-            end
-          end
-        end while invalid
-        puts "Unable to determine the tag to deploy." and exit(1) if target_tag.empty?
-        to_deploy = "#{target_tag}^{}"
-      else
-        to_deploy = `git branch`.scan(/^\* (.*)\n/).flatten.first.to_s
-        puts "Unable to determine the current git branch, please checkout the branch you'd like to deploy." and exit(1) if to_deploy.empty?
-      end
-
-      @git_push_arguments ||= ['--force']
-
-      system_with_echo "git push #{repo} #{@git_push_arguments.join(' ')} #{to_deploy}:master"
-
-      system_with_echo "heroku maintenance:on --app #{app_name}"
-
-      Rake::Task["heroku:setup:config"].invoke
-      system_with_echo "#{cmd} rake --app #{app_name} db:migrate"
-
-      system_with_echo "#{cmd} \"#{HEROKU_CONFIG.rails_cli(:runner)} 'Rails.cache.clear'\" --app #{app_name}"
-      
-      system_with_echo "heroku restart --app #{app_name}"
-      
-      system_with_echo "heroku maintenance:off --app #{app_name}"
-
-      Rake::Task["heroku:after_each_deploy"].reenable
-      Rake::Task["heroku:after_each_deploy"].invoke(app_name)
-      puts "\n"
-    end
-    Rake::Task["heroku:after_deploy"].invoke
-  end
-
-  # Callback before all deploys
-  task :before_deploy do
-  end
-
-  # Callback after all deploys
-  task :after_deploy do
-  end
-
-  # Callback before each deploy
-  task :before_each_deploy, [:app_name] do |t,args|
-  end
-
-  # Callback after each deploy
-  task :after_each_deploy, [:app_name] do |t,args|
-  end
-
-  # Callback for when we switch environment
-  task :switch_environment do
-  end
-
-  desc "Captures a bundle on Heroku"
-  task :capture do
-    HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-      system_with_echo "heroku bundles:capture --app #{app_name}"
-    end
-  end
-
-  desc "Opens a remote console"
-  task :console do
-    HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-      cmd = HEROKU_CONFIG.cmd(heroku_env)
-      system_with_echo "#{cmd} console --app #{app_name}"
-    end
-  end
-
-  desc "Shows the Heroku logs"
-  task :logs do
-    HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-      system_with_echo "heroku logs --app #{app_name}"
-    end
+    HEROKU_RUNNER.deploy
   end
 
   desc "Restarts remote servers"
   task :restart do
-    HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-      system_with_echo "heroku restart --app #{app_name}"
-    end
+    HEROKU_RUNNER.restart
   end
 
   desc "Scales heroku processes"
@@ -181,16 +77,53 @@ namespace :heroku do
     HEROKU_RUNNER.scale
   end
 
-  namespace :setup do
+  # NOTE: The following commands require the use of the heroku gem and not the heorku-api.
+  # desc "Opens a remote console"
+  # task :console do
+  #   HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
+  #     cmd = HEROKU_CONFIG.cmd(heroku_env)
+  #     system_with_echo "#{cmd} console --app #{app_name}"
+  #   end
+  # end
+  #
+  # desc "Shows the Heroku logs"
+  # task :logs do
+  #   HEROKU_RUNNER.each_heroku_app_with_threads do |heroku_env, app_name, repo|
+  #     subshell "heroku logs --app #{app_name}"
+  #   end
+  # end
 
-    desc "Creates the apps on Heroku"
-    task :apps do
-      HEROKU_RUNNER.setup_apps
+  namespace :maintenance do
+    desc "Turn maintenance mode on"
+    task :on do 
+      HEROKU_RUNNER.maintenance(true)
+    end
+
+    desc "Tuff maintenance mode off"
+    task :off do
+      HEROKU_RUNNER.maintenance(false)
+    end
+  end
+
+  desc "Setup Heroku deploy environment from heroku.yml config"
+  task :setup => [
+    "heroku:setup:app",
+    "heroku:setup:stack",
+    "heroku:setup:collaborators",
+    "heroku:setup:config",
+    "heroku:setup:addons",
+    "heroku:setup:domains",
+  ]
+
+  namespace :setup do
+    desc "Creates the app on Heroku with the default stack"
+    task :app do
+      HEROKU_RUNNER.setup_app
     end
 
     desc "Setup the Heroku stacks from heroku.yml config"
-    task :stacks do
-      HEROKU_RUNNER.setup_stacks
+    task :stack do
+      HEROKU_RUNNER.setup_stack
     end
 
     desc "Setup the Heroku collaborators from heroku.yml config"
@@ -214,66 +147,54 @@ namespace :heroku do
     end
   end
 
-  desc "Setup Heroku deploy environment from heroku.yml config"
-  task :setup => [
-    "heroku:setup:apps",
-    "heroku:setup:stacks",
-    "heroku:setup:collaborators",
-    "heroku:setup:config",
-    "heroku:setup:addons",
-    "heroku:setup:domains",
-  ]
-
   namespace :db do
     desc "Migrates and restarts remote servers"
     task :migrate do
-      HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-        cmd = HEROKU_CONFIG.cmd(heroku_env)
-        system_with_echo "#{cmd} rake --app #{app_name} db:migrate && heroku restart --app #{app_name}"
-      end
+      HEROKU_RUNNER.exec_on_all("rake db:migrate")
+      HEROKU_RUNNER.restart
     end
 
-    desc "Pulls the database from heroku and stores it into db/dumps/"
-    task :pull do
-      HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-        system_with_echo "heroku pgbackups:capture --app #{app_name}"
-        dump = `heroku pgbackups --app #{app_name}`.split("\n").last.split(" ").first
-        system_with_echo "mkdir -p #{HerokuRailsSaas::Config.root}/db/dumps"
-        file = "#{HerokuRailsSaas::Config.root}/db/dumps/#{app_name}-#{dump}.sql.gz"
-        url = `heroku pgbackups:url --app #{app_name} #{dump}`.chomp
-        system_with_echo "wget", url, "-O", file
+    # NOTE: The following commands require the use of the heroku gem and not the heorku-api.
+    # desc "Pulls the database from heroku and stores it into db/dumps/"
+    # task :pull do
+    #   HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
+    #     system_with_echo "heroku pgbackups:capture --app #{app_name}"
+    #     dump = `heroku pgbackups --app #{app_name}`.split("\n").last.split(" ").first
+    #     system_with_echo "mkdir -p #{HerokuRailsSaas::Config.root}/db/dumps"
+    #     file = "#{HerokuRailsSaas::Config.root}/db/dumps/#{app_name}-#{dump}.sql.gz"
+    #     url = `heroku pgbackups:url --app #{app_name} #{dump}`.chomp
+    #     system_with_echo "wget", url, "-O", file
 
-        # TODO: these are a bit distructive...
-        # system_with_echo "rake db:drop db:create"
-        # system_with_echo "gunzip -c #{file} | #{HerokuRailsSaas::Config.root}/script/dbconsole"
-        # system_with_echo "rake jobs:clear"
-      end
-    end
+    #     # TODO: these are a bit distructive...
+    #     # system_with_echo "rake db:drop db:create"
+    #     # system_with_echo "gunzip -c #{file} | #{HerokuRailsSaas::Config.root}/script/dbconsole"
+    #     # system_with_echo "rake jobs:clear"
+    #   end
+    # end
     
-    desc "Resets a Non Production database"
-    task :reset do
-      HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-        unless heroku_env[HEROKU_RUNNER.regex_for(:production)]
-          system_with_echo "heroku pg:reset DATABASE_URL --app #{app_name} --confirm #{app_name}"
-        else
-          puts "Will not reset the Production database"
-        end
-      end
-    end
+    # desc "Resets a Non Production database"
+    # task :reset do
+    #   HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
+    #     unless heroku_env[HEROKU_RUNNER.regex_for(:production)]
+    #       system_with_echo "heroku pg:reset DATABASE_URL --app #{app_name} --confirm #{app_name}"
+    #     else
+    #       puts "Will not reset the Production database"
+    #     end
+    #   end
+    # end
     
-    desc "Copies a database over a Non Production database"
-    task :copy,[ :source]  => :reset do |t, args|
-      HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-        raise "missing source" unless HEROKU_CONFIG.app_name_on_heroku(args.source)
+    # desc "Copies a database over a Non Production database"
+    # task :copy, [:source] => :reset do |t, args|
+    #   HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
+    #     raise "missing source" unless HEROKU_CONFIG.app_name_on_heroku(args.source)
           
-        unless heroku_env[HEROKU_RUNNER.regex_for(:production)]
-          source_app_name = HEROKU_CONFIG.app_name_on_heroku(args.source)
-          system_with_echo "heroku pgbackups:restore DATABASE_URL `heroku pgbackups:url --app #{source_app_name}` --app #{app_name} --confirm #{app_name}"
-        else
-          puts "Will not overwrite the Production database"
-        end
-      end
-    end
-
+    #     unless heroku_env[HEROKU_RUNNER.regex_for(:production)]
+    #       source_app_name = HEROKU_CONFIG.app_name_on_heroku(args.source)
+    #       system_with_echo "heroku pgbackups:restore DATABASE_URL `heroku pgbackups:url --app #{source_app_name}` --app #{app_name} --confirm #{app_name}"
+    #     else
+    #       puts "Will not overwrite the Production database"
+    #     end
+    #   end
+    # end
   end
 end
