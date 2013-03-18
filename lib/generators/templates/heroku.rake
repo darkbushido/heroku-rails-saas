@@ -14,15 +14,15 @@ namespace :heroku do
   end
 
   # Runs before each push to a particular heroku deploy environment.
-  task :before_each_deploy, [:local_name, :remote_name, :configs] => :environment do |t, args|
+  task :before_each_deploy, [:local_name, :remote_name, :configs] do |t, args|
   end
 
   # Runs every time there is heroku deploy regardless of exceptions/failures.
-  task :ensure_each_deploy, [:local_name, :remote_name, :configs] => :environment do |t, args|
+  task :ensure_each_deploy, [:local_name, :remote_name, :configs] do |t, args|
   end
 
   # Runs after each push to a particular heroku deploy environment
-  task :after_each_deploy, [:local_name, :remote_name, :configs] => :environment do |t, args|
+  task :after_each_deploy, [:local_name, :remote_name, :configs] do |t, args|
   end
 
   # Runs after all the deploys complete
