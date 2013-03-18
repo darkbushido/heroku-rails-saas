@@ -4,7 +4,6 @@ require 'erb'
 
 module HerokuRailsSaas
   class Config
-
     SEPERATOR = ":"
 
     class << self

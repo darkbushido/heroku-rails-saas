@@ -1,16 +1,19 @@
+require_relative 'displayer'
+
 module HerokuRailsSaas
   module Helper
+    COLORS = %w(cyan yellow green magenta red)
+    COLOR_CODES = {
+      "red"     => 31,
+      "green"   => 32,
+      "yellow"  => 33,
+      "magenta" => 35,
+      "cyan"    => 36,
+    }
+    
     class << self
-      def red(string)
-        colorize(string, 31)
-      end
-
-      def green(string)
-        colorize(string, 32)
-      end
-
-      def yellow(string)
-        colorize(string, 33)
+      COLORS.each do |color|
+        define_method(color.to_sym) { |string| colorize(string, COLOR_CODES[color]) }
       end
 
       # Implementation from https://github.com/heroku/heroku/blob/master/lib/heroku/helpers.rb for consistency. 
@@ -27,7 +30,7 @@ module HerokuRailsSaas
       end
 
       # Implementation from https://github.com/heroku/heroku/blob/master/lib/heroku/helpers.rb for consistency.
-      def styled_hash(hash)
+      def styled_hash(hash, displayer)
         max_key_length = hash.keys.map {|key| key.to_s.length}.max + 2
         keys ||= hash.keys.sort {|x,y| x.to_s <=> y.to_s}
         keys.each do |key|
@@ -37,19 +40,19 @@ module HerokuRailsSaas
               next
             else
               elements = value.sort {|x,y| x.to_s <=> y.to_s}
-              print "#{key}: ".ljust(max_key_length)
+              displayer.labelize("#{key}: ".ljust(max_key_length), false)
               puts elements[0]
               elements[1..-1].each do |element|
-                puts "#{' ' * max_key_length}#{element}"
+                displayer.labelize("#{' ' * max_key_length}#{element}")
               end
               if elements.length > 1
-                puts
+                displayer.labelize
               end
             end
           when nil
             next
           else
-            print "#{key}: ".ljust(max_key_length)
+            displayer.labelize("#{key}: ".ljust(max_key_length), false)
             puts value
           end
         end

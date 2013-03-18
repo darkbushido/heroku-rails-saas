@@ -9,6 +9,7 @@ silence_warnings do
   HEROKU_APP_SPECIFIC_CONFIG_FILES = Dir.glob("#{File.join(HerokuRailsSaas::Config.root, 'config', 'heroku')}/*.yml")
   HEROKU_CONFIG = HerokuRailsSaas::Config.new({:default => HEROKU_CONFIG_FILE, :apps => HEROKU_APP_SPECIFIC_CONFIG_FILES})
   HEROKU_RUNNER = HerokuRailsSaas::Runner.new(HEROKU_CONFIG)
+  DISPLAYER = HerokuRailsSaas::Displayer
 end
 
 # create all the environment specific tasks
@@ -77,21 +78,15 @@ namespace :heroku do
     HEROKU_RUNNER.scale
   end
 
-  # NOTE: The following commands require the use of the heroku gem and not the heorku-api.
-  # desc "Opens a remote console"
-  # task :console do
-  #   HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-  #     cmd = HEROKU_CONFIG.cmd(heroku_env)
-  #     system_with_echo "#{cmd} console --app #{app_name}"
-  #   end
-  # end
-  #
-  # desc "Shows the Heroku logs"
-  # task :logs do
-  #   HEROKU_RUNNER.each_heroku_app_with_threads do |heroku_env, app_name, repo|
-  #     subshell "heroku logs --app #{app_name}"
-  #   end
-  # end
+  desc "Opens a remote console"
+  task :console do
+    HEROKU_RUNNER.console
+  end
+
+  desc "Shows the Heroku logs"
+  task :logs do
+    HEROKU_RUNNER.logs
+  end
 
   namespace :maintenance do
     desc "Turn maintenance mode on"
@@ -155,6 +150,7 @@ namespace :heroku do
     end
 
     # NOTE: The following commands require the use of the heroku gem and not the heorku-api.
+    # Need to address these commands later.
     # desc "Pulls the database from heroku and stores it into db/dumps/"
     # task :pull do
     #   HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|

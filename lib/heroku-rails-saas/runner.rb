@@ -1,13 +1,18 @@
 require 'active_support/core_ext/object/blank'
+require 'parallel'
 
 require_relative 'heroku_client'
 require_relative 'helper'
+require_relative 'displayer'
 
 module HerokuRailsSaas
   class Runner
+    extend Forwardable
+
     DATABASE_REGEX = /heroku-postgresql|shared-database|heroku-shared-postgresql|amazon_rds/
     SHARED_DATABASE_ADDON = "shared-database:5mb"
     CONFIG_DELETE_MARKER = "DELETE"
+    LOCAL_CA_FILE = File.expand_path('../../data/cacert.pem', __FILE__)
 
     class << self
       # Returns an array of :add and :delete deltas respectively.
@@ -19,11 +24,14 @@ module HerokuRailsSaas
     def initialize(config)
       @config = config
       @local_names = []
+      @displayer = nil
+      @assigned_colors = {}
       @heroku = HerokuClient.new
-      @user = @heroku.user
     end
 
-    # App/Envronment methods
+    def_delegator :@displayer, :labelize
+
+    # App/Environment methods
     #---------------------------------------------------------------------------------------------------------------------
     #
     def add_app(local_name)
@@ -45,21 +53,7 @@ module HerokuRailsSaas
     #
     def setup_app
       each_heroku_app do |local_name, remote_name|
-        remote_apps = @heroku.get_apps.map { |apps| apps["name"] }
-
-        unless remote_apps.include?(remote_name)
-          params = {'name' => remote_name}
-          region = @config.region(local_name)
-
-          puts "Creating Heroku app: #{Helper.green(remote_name)}"
-
-          if region.present?
-            params.merge!('region' => region)
-            puts "\t Region: #{Helper.green(region)}"
-          end
-
-          @heroku.post_app(params)
-        end
+        _setup_app(local_name, remote_name)
       end
     end
 
@@ -77,25 +71,25 @@ module HerokuRailsSaas
 
     def setup_collaborators
       each_heroku_app do |local_name, remote_name|
-        __setup_collaborators__(local_name, remote_name)
+        _setup_collaborators(local_name, remote_name)
       end
     end
 
     def setup_addons
       each_heroku_app do |local_name, remote_name|
-        __setup_addons__(local_name, remote_name)
+        _setup_addons(local_name, remote_name)
       end
     end
 
     def setup_config
       each_heroku_app do |local_name, remote_name|
-        __setup_config__(local_name, remote_name)
+        _setup_config(local_name, remote_name)
       end
     end
 
     def setup_domains
       each_heroku_app do |local_name, remote_name|
-        __setup_domains__(local_name, remote_name)
+        _setup_domains(local_name, remote_name)
       end
     end
 
@@ -103,10 +97,14 @@ module HerokuRailsSaas
     #---------------------------------------------------------------------------------------------------------------------
     #
     def deploy
+      require 'pty'
+
       Rake::Task["heroku:before_deploy"].invoke
 
+      deploy_branch = prompt_for_branch
+
       each_heroku_app do |local_name, remote_name|
-        puts "Deploying to #{Helper.green(remote_name)}..."
+        @displayer.labelize("Deploying to #{remote_name}...")
 
         configs = @config.config(local_name)
 
@@ -114,20 +112,41 @@ module HerokuRailsSaas
         Rake::Task["heroku:before_each_deploy"].invoke(local_name, remote_name, configs)
 
         begin
+          raise "Server not setup run `rake #{local_name} heorku:setup`" if _setup_app?(remote_name)
+
           repo = @heroku.get_app(remote_name)["git_url"]
-          deploy_branch = prompt_for_branch(local_name)
-          if continue = system("git push #{repo} --force #{deploy_branch}:master")
-            __maintenance__(true, remote_name)
-            __setup_collaborators__(local_name, remote_name)
-            __setup_addons__(local_name, remote_name)
-            __setup_domains__(local_name, remote_name)
-            __setup_config__(local_name, remote_name)        
-            __maintenance__(false, remote_name)
-            @heroku.post_ps(remote_name, "rake db:migrate")
-          end     
+
+          # The use of PTY here is because we can't depend on the external process 'git' to flush its
+          # buffered output to STDOUT, using PTY we can mimic a terminal and trick 'git' into periodically flushing
+          # it's output. 
+          # NOTE: The process bar in 'git' doesn't render correct since it tries to re-render the same line while
+          # other proceess are trying to do the same.
+          # ^0 is required so git dereferences the tag into a commit SHA (else Heroku's git server will throw up)
+          # See https://github.com/TerraCycleUS/heroku-rails-saas/commit/25cbcd3d79fe74e4e54297df1022a39bdd104668
+          PTY.spawn("git push #{repo} --force #{deploy_branch}^0:refs/heads/master") do |read_io, _, pid|
+            begin
+              read_io.sync = true
+              read_io.each { |line| @displayer.labelize(line) }
+              Process.wait(pid)
+            rescue Errno::EIO
+            end
+          end
+
+          if continue = $?.exitstatus
+            _maintenance(true, remote_name)
+            _setup_collaborators(local_name, remote_name)
+            _setup_addons(local_name, remote_name)
+            _setup_domains(local_name, remote_name)
+            _setup_config(local_name, remote_name)
+            _migrate(remote_name)
+            _scale(local_name, remote_name)
+            _restart(remote_name)
+            _maintenance(false, remote_name)
+          end
+        rescue Interrupt
+          @displayer.labelize("!!! Interrupt issued stopping deployment")
         rescue Exception => error
-          puts "ERROR deploying #{Helper.yellow(remote_name)}:"
-          puts Helper.red(error.message)
+          @displayer.labelize("!!! Error deploying: #{Helper.red(error.message)}")
           continue = false
         ensure
           Rake::Task["heroku:ensure_each_deploy"].reenable
@@ -151,7 +170,7 @@ module HerokuRailsSaas
 
     def exec(remote_name, command)
       result = @heroku.post_ps(remote_name, command)
-      puts "#{remote_name}: #{Helper.green(result["command"])}"
+      @displayer.labelize(Helper.green(result["command"]))
     end
 
     def apps
@@ -164,6 +183,7 @@ module HerokuRailsSaas
     end
 
     # Implementation from https://raw.github.com/heroku/heroku/master/lib/heroku/command/apps.rb to be consistent with our output.
+    # See Helper#styled_hash for further implemention details.
     def info
       each_heroku_app do |_, remote_name|
         app_data = @heroku.get_app(remote_name)
@@ -195,66 +215,97 @@ module HerokuRailsSaas
         data["Web URL"] = app_data["web_url"]
         data["Tier"] = app_data["tier"].capitalize if app_data["tier"]
 
-        Helper.styled_hash(data)
+        Helper.styled_hash(data, @displayer)
       end  
     end
 
     def maintenance(toggle)
       each_heroku_app do |_, remote_name|
-        __maintenance__(toggle, remote_name)
+        _maintenance(toggle, remote_name)
       end 
     end
 
     def restart
       each_heroku_app do |_, remote_name|
-        __restart__(remote_name)
+        _restart(remote_name)
       end
     end
 
     def scale
-      each_heroku_app do |_, remote_name|
-        print "Scaling #{remote_name}... "
-        scaling = @config.scale(local_name)
-        types = scaling.keys
-        
-        # Clock must be the last process because it could require a worker dyno process present
-        # due to it scheduling a job immediately after it is up.
-        types << types.delete("clock")
-        types.each { |type| @heroku.post_ps_scale(remote_name, type, scaling[type]) }
+      each_heroku_app do |local_name, remote_name|
+        _scale(local_name, remote_name)
+      end
+    end
 
-        puts Helper.green("OK")
+    def logs
+      each_heroku_app do |_, remote_name|
+        _logs(remote_name)
+      end
+    end
+
+    # NOTE: This doesn't work with more than one environment. My guess is that each process triggers STDIN to flush
+    # its buffer causing it to act very strange. A possible solution is to have a master process (or the current rake
+    # process) to control the flow of input data via an IO pipe.
+    def console
+      require 'rendezvous'
+
+      each_heroku_app do |_, remote_name|
+        _console(remote_name)
       end
     end
 
     # Helper methods
     #---------------------------------------------------------------------------------------------------------------------
     #
-
-    # Cycles through each heroku app and yield the local app name, the heroku app name, and the git repo url.
+    # Cycles through each heroku app and yield the local app name and the heroku app name. This will fork and create another 
+    # child process for each heorku app.
     def each_heroku_app
       process_heroku_command do |local_names|
+        $stdout.sync = true # Sync up the bufferred output.
+
+        # Preload the colors before we parallelize any commands.
         local_names.each do |local_name|
+          @assigned_colors[local_name] ||= Helper::COLORS[@assigned_colors.size % Helper::COLORS.size]
+        end
+
+        # Performs work in 4 processes, each process is tasked the same command but for a different 
+        # heroku environment. 
+        # We use processes to get around the GIL/GVL issues. 
+        Parallel.each(local_names, :in_processes => 4) do |local_name|
           remote_name = @config.heroku_app_name(local_name)
+          @displayer = Displayer.new(remote_name, @assigned_colors[local_name])
           yield(local_name, remote_name)
         end
       end
     end
 
-    def regex_for(environment)
-      match = case environment
-        when :production then "production|prod|live"
-        when :staging    then "staging|stage"
-      end
-      Regexp.new("#{@config.class::SEPERATOR}(#{match})")
-    end
-
     # Internal methods
     #---------------------------------------------------------------------------------------------------------------------
     #
-  protected
-    def __setup_collaborators__(local_name, remote_name)
-      puts "Setting #{Helper.green('collaborators')}... "
+  private
+    def _setup_app(local_name, remote_name)
+      if _setup_app?(remote_name)
+        params = {'name' => remote_name}
+        region = @config.region(local_name)
 
+        @displayer.labelize("Creating Heroku app: #{Helper.green(remote_name)}")
+
+        if region.present?
+          params.merge!('region' => region)
+          @displayer.labelize("\t Region: #{Helper.green(region)}")
+        end
+
+        @heroku.post_app(params)
+      end
+    end
+
+    def _setup_app?(remote_name)
+      !@heroku.get_apps.any? { |apps| apps["name"] == remote_name }
+    end
+
+    def _setup_collaborators(local_name, remote_name)
+      @displayer.labelize("Setting collaborators... ")
+      
       remote_collaborators = @heroku.get_collaborators(remote_name).map { |collaborator| collaborator["email"] }
       local_collaborators  = @config.collaborators(local_name)
 
@@ -263,8 +314,8 @@ module HerokuRailsSaas
       apply(remote_name, delete_collaborators, "delete_collaborator", "Deleting collaborator(s):")
     end
 
-    def __setup_addons__(local_name, remote_name)
-      puts "Setting #{Helper.green('addons')}... "
+    def _setup_addons(local_name, remote_name)
+      @displayer.labelize("Setting addons... ")
 
       remote_addons = @heroku.get_addons(remote_name).map { |addon| addon["name"] }
       local_addons  = @config.addons(local_name)
@@ -277,8 +328,8 @@ module HerokuRailsSaas
       apply(remote_name, delete_addons, "delete_addon", "Deleting addon(s):")
     end
 
-    def __setup_config__(local_name, remote_name)
-      puts "Setting #{Helper.green('config')}... "
+    def _setup_config(local_name, remote_name)
+      @displayer.labelize("Setting config... ")
 
       remote_configs = @heroku.get_config_vars(remote_name)
       local_configs = @config.config(local_name)
@@ -291,24 +342,34 @@ module HerokuRailsSaas
           true
         end 
       end
+      perform_delete = delete_config_keys.present? && 
+                       remote_configs.keys.any? { |key| delete_config_keys.include?(key) }
+      
+      if add_configs.present?
+        @displayer.labelize("Adding config(s):")
+        add_configs.each do |key, value|
+          if value.include?("\n")
+            configs_values = value.split("\n")
+            @displayer.labelize("#{key.rjust(25)}: #{configs_values.shift}")
+            configs_values.each { |v| @displayer.labelize("#{''.rjust(25)} #{v}") }
+          else  
+            @displayer.labelize("#{key.rjust(25)}: #{value}")
+          end
+        end
+        @heroku.put_config_vars(remote_name, add_configs)
+      end
 
-      if delete_config_keys.present?
-        puts "Deleting config(s):"
+      if perform_delete
+        @displayer.labelize("Deleting config(s):")
         delete_config_keys.each do |key| 
-          puts "\t#{key}: #{local_configs[:key]}"
+          @displayer.labelize("#{key.rjust(25)}: #{remote_configs[key]}")
           @heroku.delete_config_var(remote_name, key) 
         end
       end
-
-      if add_configs.present?
-        puts "Adding config(s):"
-        add_configs.each { |key, value| puts "#{key.rjust(25)} = #{value}" }
-        @heroku.put_config_vars(remote_name, add_configs)
-      end
     end
 
-    def __setup_domains__(local_name, remote_name)
-      puts "Setting #{Helper.green('domains')}... "
+    def _setup_domains(local_name, remote_name)
+      @displayer.labelize("Setting domains... ")
 
       remote_domains = @heroku.get_domains(remote_name).map { |domain| domain["domain"] }
       local_domains  = @config.domains(local_name)
@@ -318,22 +379,83 @@ module HerokuRailsSaas
       apply(remote_name, delete_domains, "delete_domain", "Deleting domain(s):")
     end
 
-    def __maintenance__(toggle, remote_name)
+    def _maintenance(toggle, remote_name)
       value   = toggle ? '1' : 0
       display = toggle ? Helper.green("ON") : Helper.red("OFF")
-      puts "#{remote_name} maintenance mode #{display}"
+      @displayer.labelize("Maintenance mode #{display}")
       @heroku.post_app_maintenance(remote_name, value)
     end
 
-    def __restart__(remote_name)
-      print "Restarting #{remote_name}... "
+    def _restart(remote_name)
       @heroku.post_ps_restart(remote_name)
-      puts Helper.green("OK")
+      @displayer.labelize("Restarting... #{Helper.green('OK')}")
     end
 
-  private
-    def prompt_for_branch(local_name)
-      if local_name[regex_for(:production)]
+    def _migrate(remote_name)
+      exec(remote_name, "rake db:migrate")
+    end
+
+    def _scale(local_name, remote_name)
+      scaling = @config.scale(local_name)
+      types = scaling.keys
+      
+      # Clock must be the last process to scale because it could require a worker dyno to be present
+      # since it can trigger a scheduling of a background job immediately after its state is up.
+      types << types.delete("clock")
+      types.each { |type| @heroku.post_ps_scale(remote_name, type, scaling[type]) }
+      @displayer.labelize("Scaling ... #{Helper.green('OK')}")
+    end
+
+    def _logs(remote_name)
+      url = @heroku.get_logs(remote_name, {:tail => 1})
+      uri  = URI.parse(url)
+      http = Net::HTTP.new(uri.host, uri.port)
+
+      if uri.scheme == 'https'
+        http.use_ssl = true
+        if ENV["HEROKU_SSL_VERIFY"] == "disable"
+          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+        else
+          http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+          http.ca_file = LOCAL_CA_FILE
+          http.verify_callback = lambda do |preverify_ok, ssl_context|
+            if (!preverify_ok) || ssl_context.error != 0
+              @displayer.labelize("WARNING: Unable to verify SSL certificate for #{host}\nTo disable SSL verification, run with HEROKU_SSL_VERIFY=disable")
+            end
+            true
+          end
+        end
+      end
+
+      http.read_timeout = 60 * 60 * 24
+
+      begin
+        http.start do
+          http.request_get(uri.path + (uri.query ? "?" + uri.query : "")) do |request|
+            request.read_body do |chunk|
+              chunk.split("\n").each { |line| @displayer.labelize(line) }
+            end
+          end
+        end
+      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, SocketError
+        @displayer.labelize("Could not connect to logging service")
+      rescue Timeout::Error, EOFError
+        @displayer.labelize("\nRequest timed out")
+      end
+    end
+
+    def _console(remote_name)
+      data = @heroku.post_ps(remote_name, 'console', {:attach => true})
+
+      Rendezvous.start(:url => data['rendezvous_url'])
+    end
+
+    # Prompt for a branch tag if any of the environments being deploy to is production grade.
+    # This serves as a sanity check against deploy directly to production environments. 
+    def prompt_for_branch
+      deploy_branch = nil
+
+      if @local_names.any? {|local_name| local_name[regex_for(:production)] }
         all_tags = `git tag`
         target_tag = `git describe --tags --abbrev=0`.chomp # Set latest tag as default
 
@@ -358,7 +480,7 @@ module HerokuRailsSaas
           exit(1)
         end
 
-        "#{target_tag}^{}"
+        deploy_branch = target_tag
       else
         deploy_branch = `git branch`.scan(/^\* (.*)\n/).flatten.first.to_s
         
@@ -366,11 +488,12 @@ module HerokuRailsSaas
           puts "Unable to determine the current git branch, please checkout the branch you'd like to deploy."
           exit(1) 
         end
-
-        deploy_branch
       end
+
+      deploy_branch
     end
 
+    # Checks to see if there is at least one environment indicated to run commands against.
     def process_heroku_command
       if @config.apps.blank?
         puts "\nNo heroku apps are configured. Run: rails generate heroku:config\n\n"
@@ -404,12 +527,21 @@ module HerokuRailsSaas
     #   message  - display of what actions are to be performed.
     def apply(app, settings, method, message)
       if settings.present?
-        puts "#{message}"
+        @displayer.labelize(message)
         settings.each do |setting|
-          puts "\t#{setting}"
+          @displayer.labelize("\t#{setting}")
           @heroku.__send__(method.to_sym, app, setting)
         end
       end
+    end
+
+    # Returns a regex to look for a specific type of an environment.
+    def regex_for(environment)
+      match = case environment
+        when :production then "production|prod|live"
+        when :staging    then "staging|stage"
+      end
+      Regexp.new("#{@config.class::SEPERATOR}(#{match})")
     end
   end
 end
