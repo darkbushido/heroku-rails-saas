@@ -34,7 +34,7 @@ module HerokuRailsSaas
 
     def netrc # :nodoc:
       @netrc ||= begin
-        File.exists?(netrc_path) && Netrc.read(netrc_path)
+        raise Exception unless File.exists?(netrc_path) && Netrc.read(netrc_path)
       rescue => error
         raise ".netrc missing or no entry found. Try `heroku auth:login`"
       end
