@@ -26,7 +26,6 @@ module HerokuRailsSaas
       @local_names = []
       @displayer = nil
       @assigned_colors = {}
-      @heroku = HerokuClient.new
     end
 
     def_delegator :@displayer, :labelize
@@ -34,6 +33,10 @@ module HerokuRailsSaas
     # App/Environment methods
     #---------------------------------------------------------------------------------------------------------------------
     #
+    def heroku
+      @heroku ||= HerokuClient.new
+    end
+
     def add_app(local_name)
       @local_names << local_name
     end
@@ -59,12 +62,12 @@ module HerokuRailsSaas
 
     def setup_stack
       each_heroku_app do |local_name, remote_name|
-        remote_stack  = @heroku.get_stack(remote_name).select { |stack| stack["current"] }.first["name"]
+        remote_stack  = heroku.get_stack(remote_name).select { |stack| stack["current"] }.first["name"]
         local_stack   = @config.stack(local_name)
 
         if local_stack != remote_stack
           puts "Migrating the app: #{remote_name} to the stack: #{local_stack}"
-          @heroku.put_stack(remote_name, local_stack)
+          heroku.put_stack(remote_name, local_stack)
         end
       end
     end
@@ -114,7 +117,7 @@ module HerokuRailsSaas
         begin
           raise "Server not setup run `rake #{local_name} heorku:setup`" if _setup_app?(remote_name)
 
-          repo = @heroku.get_app(remote_name)["git_url"]
+          repo = heroku.get_app(remote_name)["git_url"]
 
           # The use of PTY here is because we can't depend on the external process 'git' to flush its
           # buffered output to STDOUT, using PTY we can mimic a terminal and trick 'git' into periodically flushing
@@ -169,13 +172,13 @@ module HerokuRailsSaas
     end
 
     def exec(remote_name, command)
-      result = @heroku.post_ps(remote_name, command)
+      result = heroku.post_ps(remote_name, command)
       @displayer.labelize(Helper.green(result["command"]))
     end
 
     def apps
       each_heroku_app do |local_name, remote_name|
-        repo = @heroku.get_app(remote_name)["git_url"]
+        repo = heroku.get_app(remote_name)["git_url"]
         puts "#{Helper.red(local_name)} maps to the Heroku app #{Helper.yellow(remote_name)}:"
         puts "  #{Helper.green(repo)}"
         puts
@@ -186,10 +189,10 @@ module HerokuRailsSaas
     # See Helper#styled_hash for further implemention details.
     def info
       each_heroku_app do |_, remote_name|
-        app_data = @heroku.get_app(remote_name)
+        app_data = heroku.get_app(remote_name)
 
-        addons = @heroku.get_addons(remote_name).map { |addon| addon['name'] }.sort
-        collaborators = @heroku.get_collaborators(remote_name).map { |collaborator| collaborator['email'] }.sort
+        addons = heroku.get_addons(remote_name).map { |addon| addon['name'] }.sort
+        collaborators = heroku.get_collaborators(remote_name).map { |collaborator| collaborator['email'] }.sort
         collaborators.reject! { |email| email == app_data['owner_email'] }
 
         data = {:name => remote_name}
@@ -295,18 +298,18 @@ module HerokuRailsSaas
           @displayer.labelize("\t Region: #{Helper.green(region)}")
         end
 
-        @heroku.post_app(params)
+        heroku.post_app(params)
       end
     end
 
     def _setup_app?(remote_name)
-      !@heroku.get_apps.any? { |apps| apps["name"] == remote_name }
+      !heroku.get_apps.any? { |apps| apps["name"] == remote_name }
     end
 
     def _setup_collaborators(local_name, remote_name)
       @displayer.labelize("Setting collaborators... ")
       
-      remote_collaborators = @heroku.get_collaborators(remote_name).map { |collaborator| collaborator["email"] }
+      remote_collaborators = heroku.get_collaborators(remote_name).map { |collaborator| collaborator["email"] }
       local_collaborators  = @config.collaborators(local_name)
 
       add_collaborators, delete_collaborators = self.class.deltas(local_collaborators, remote_collaborators)
@@ -317,7 +320,7 @@ module HerokuRailsSaas
     def _setup_addons(local_name, remote_name)
       @displayer.labelize("Setting addons... ")
 
-      remote_addons = @heroku.get_addons(remote_name).map { |addon| addon["name"] }
+      remote_addons = heroku.get_addons(remote_name).map { |addon| addon["name"] }
       local_addons  = @config.addons(local_name)
 
       # Requires at the minimum a shared database.
@@ -331,7 +334,7 @@ module HerokuRailsSaas
     def _setup_config(local_name, remote_name)
       @displayer.labelize("Setting config... ")
 
-      remote_configs = @heroku.get_config_vars(remote_name)
+      remote_configs = heroku.get_config_vars(remote_name)
       local_configs = @config.config(local_name)
 
       delete_config_keys = []
@@ -356,14 +359,14 @@ module HerokuRailsSaas
             @displayer.labelize("#{key.rjust(25)}: #{value}")
           end
         end
-        @heroku.put_config_vars(remote_name, add_configs)
+        heroku.put_config_vars(remote_name, add_configs)
       end
 
       if perform_delete
         @displayer.labelize("Deleting config(s):")
         delete_config_keys.each do |key| 
           @displayer.labelize("#{key.rjust(25)}: #{remote_configs[key]}")
-          @heroku.delete_config_var(remote_name, key) 
+          heroku.delete_config_var(remote_name, key) 
         end
       end
     end
@@ -371,7 +374,7 @@ module HerokuRailsSaas
     def _setup_domains(local_name, remote_name)
       @displayer.labelize("Setting domains... ")
 
-      remote_domains = @heroku.get_domains(remote_name).map { |domain| domain["domain"] }
+      remote_domains = heroku.get_domains(remote_name).map { |domain| domain["domain"] }
       local_domains  = @config.domains(local_name)
       add_domains, delete_domains = self.class.deltas(local_domains, remote_domains)
 
@@ -383,11 +386,11 @@ module HerokuRailsSaas
       value   = toggle ? '1' : 0
       display = toggle ? Helper.green("ON") : Helper.red("OFF")
       @displayer.labelize("Maintenance mode #{display}")
-      @heroku.post_app_maintenance(remote_name, value)
+      heroku.post_app_maintenance(remote_name, value)
     end
 
     def _restart(remote_name)
-      @heroku.post_ps_restart(remote_name)
+      heroku.post_ps_restart(remote_name)
       @displayer.labelize("Restarting... #{Helper.green('OK')}")
     end
 
@@ -402,12 +405,12 @@ module HerokuRailsSaas
       # Clock must be the last process to scale because it could require a worker dyno to be present
       # since it can trigger a scheduling of a background job immediately after its state is up.
       types << types.delete("clock")
-      types.each { |type| @heroku.post_ps_scale(remote_name, type, scaling[type]) }
+      types.each { |type| heroku.post_ps_scale(remote_name, type, scaling[type]) }
       @displayer.labelize("Scaling ... #{Helper.green('OK')}")
     end
 
     def _logs(remote_name)
-      url = @heroku.get_logs(remote_name, {:tail => 1})
+      url = heroku.get_logs(remote_name, {:tail => 1})
       uri  = URI.parse(url)
       http = Net::HTTP.new(uri.host, uri.port)
 
@@ -445,7 +448,7 @@ module HerokuRailsSaas
     end
 
     def _console(remote_name)
-      data = @heroku.post_ps(remote_name, 'console', {:attach => true})
+      data = heroku.post_ps(remote_name, 'console', {:attach => true})
 
       Rendezvous.start(:url => data['rendezvous_url'])
     end
@@ -530,7 +533,7 @@ module HerokuRailsSaas
         @displayer.labelize(message)
         settings.each do |setting|
           @displayer.labelize("\t#{setting}")
-          @heroku.__send__(method.to_sym, app, setting)
+          heroku.__send__(method.to_sym, app, setting)
         end
       end
     end
