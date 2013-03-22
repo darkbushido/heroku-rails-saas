@@ -34,14 +34,12 @@ module HerokuRailsSaas
 
     def netrc # :nodoc:
       @netrc ||= begin
-        if File.exists?(netrc_path) 
-          Netrc.read(netrc_path) 
-        else
-          # Should really raise an error but not when running in JENKINS.
-          # Just STDOUT for now. 
-          puts ".netrc missing or no entry found. Try `heroku auth:login`"
-          [false, false]
-        end
+        File.exists?(netrc_path) && Netrc.read(netrc_path) 
+      rescue => error
+        # Should really raise an error but not when running in JENKINS.
+        # Just STDOUT for now. 
+        puts ".netrc missing or no entry found. Try `heroku auth:login`"
+        [false, false]
       end
     end
 
