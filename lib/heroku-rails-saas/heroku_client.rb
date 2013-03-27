@@ -19,7 +19,8 @@ module HerokuRailsSaas
     def method_missing(method_name, *args, &block)
       begin
         response = @heroku.__send__(method_name.to_sym, *args, &block)
-        JSON.parse(response.to_json)["body"]
+        # JSON.parse(response.to_json)["body"]
+        response.body # Change due to Excon update.
       rescue Heroku::API::Errors::ErrorWithResponse => error
         message = error.response.status == 404 ? "#{Helper.yellow(args[0])} does not exists" : JSON.parse(error.response.body)["error"]
         status = error.response.headers["Status"]
