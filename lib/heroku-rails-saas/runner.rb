@@ -345,13 +345,14 @@ module HerokuRailsSaas
           true
         end 
       end
+
       perform_delete = delete_config_keys.present? && 
                        remote_configs.keys.any? { |key| delete_config_keys.include?(key) }
       
       if add_configs.present?
         @displayer.labelize("Adding config(s):")
         add_configs.each do |key, value|
-          if value.include?("\n")
+          if value.is_a?(String) && value.include?("\n")
             configs_values = value.split("\n")
             @displayer.labelize("#{key.rjust(25)}: #{configs_values.shift}")
             configs_values.each { |v| @displayer.labelize("#{''.rjust(25)} #{v}") }
