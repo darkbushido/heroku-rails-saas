@@ -10,6 +10,7 @@ module HerokuRailsSaas
     extend Forwardable
 
     DATABASE_REGEX = /heroku-postgresql|shared-database|heroku-shared-postgresql|amazon_rds/
+    DEFAULT_HEROKU_DOMAIN = /\.herokuapp\.com\Z/
     SHARED_DATABASE_ADDON = "shared-database:5mb"
     CONFIG_DELETE_MARKER = "DELETE"
     LOCAL_CA_FILE = File.expand_path('../../data/cacert.pem', __FILE__)
@@ -378,6 +379,8 @@ module HerokuRailsSaas
       remote_domains = heroku.get_domains(remote_name).map { |domain| domain["domain"] }
       local_domains  = @config.domains(local_name)
       add_domains, delete_domains = self.class.deltas(local_domains, remote_domains)
+
+      delete_domains.delete_if { |domain| domain =~ DEFAULT_HEROKU_DOMAIN }
 
       apply(remote_name, add_domains, "post_domain", "Adding domain(s):")
       apply(remote_name, delete_domains, "delete_domain", "Deleting domain(s):")
