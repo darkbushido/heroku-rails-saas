@@ -43,18 +43,6 @@ module HerokuRailsSaas
     def app_names
       apps.keys
     end
-
-    def cmd(app_env)
-      if self.stack(app_env) =~ /cedar/i
-        'heroku run '
-      else
-        'heroku '
-      end
-    end
-
-    def rails_cli script
-      Rails::VERSION::MAJOR < 3 ? ".script/#{script}" : "rails #{script}"
-    end
     
     # Returns the app name on heroku from a string format like so: `app:env`
     # Allows for `rake <app:env> [<app:env>] <command>`
@@ -111,7 +99,15 @@ module HerokuRailsSaas
 
     # return a list of addons for a particular app environment
     def addons(app_env)
-      app_setting_array('addons', app_env)
+      all_addons = app_setting_array('addons', app_env)
+
+      # Replace default addons tier with app specific ones.
+      addons = all_addons.each_with_object({}) do |addon, hash|
+        name, tier = addon.split(":")
+        hash[name] = tier
+      end
+
+      addons.to_a.map { |key_value| key_value.join(":") }
     end
 
     # return the region for a particular app environment
@@ -130,13 +126,7 @@ module HerokuRailsSaas
 
       app_settings = Array.wrap(setting[name].try("[]", env))
 
-      # Replace default addons tier with app specific ones.
-      addons = (default + app_settings).uniq.each_with_object({}) do |addon, hash|
-        name, tier = addon.split(":")
-        hash[name] = tier
-      end
-
-      addons.to_a.map { |key_value| key_value.join(":") }
+      (default + app_settings).uniq
     end
 
     # Add app specific settings to the default ones defined in all for a hash listing

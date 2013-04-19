@@ -14,3 +14,4 @@ addons:
   # add any other addons here
   - scheduler:standard
   - newrelic:bronze
+  - multi_tier:free

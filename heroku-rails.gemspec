@@ -32,10 +32,10 @@ Gem::Specification.new do |s|
     "CHANGELOG"
   ]
 
+  s.add_runtime_dependency "rails"
   s.add_runtime_dependency "heroku-api", "~> 0.3.8"
   s.add_runtime_dependency "netrc", "~> 0.7.7"
   s.add_runtime_dependency "parallel", "~> 0.6.2"
   s.add_runtime_dependency "rendezvous", "~> 0.0.2"
   s.add_development_dependency "rspec", "~> 2.0"
-  s.add_development_dependency "activesupport"
 end
