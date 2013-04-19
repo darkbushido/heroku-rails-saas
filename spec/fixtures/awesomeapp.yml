@@ -25,11 +25,18 @@ domains:
     - "awesomeapp.com"
     - "www.awesomeapp.com"
 
+region:
+  staging: "UK"
+  production: "EU"
+
 addons:
   production:
     # list production env specific addons here
     - ssl:piggyback
     - cron:daily
+  staging:
+    - cron:daily
+    - multi_tier:paid
 
 scale:
   production:

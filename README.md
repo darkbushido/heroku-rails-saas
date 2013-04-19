@@ -13,7 +13,7 @@ Configure your app specific Heroku environment via a YML file (config/heroku/awe
 Add this to your Gemfile:
 
     group :development do
-      gem 'heroku-rails'
+      gem 'heroku-rails-saas'
     end
 
 ## Configure
@@ -25,6 +25,8 @@ In config/heroku.yml you will need add the Heroku apps that you would like to at
 If you want to defined more 
 
 ### Example Configuration File
+
+For config ENV use 'DELETE' as a value to indicate you want it removed/unset.
 
 For all configuration settings
 
@@ -89,7 +91,7 @@ To set heroku up (using your heroku.yml), just run.
 
 This will create the heroku apps you have defined, and create the settings for each.
 
-Run `rake heroku:setup` every time you edit the heroku.yml. It will only make incremental changes (based on what you've added/removed). If nothing has changed in the heroku.yml since the last `heroku:setup`, then no heroku changes will be sent.
+Run `rake <app_name>:<environment> heroku:setup` every time you edit the heroku.yml. It will only make incremental changes (based on what you've added/removed). If nothing has changed in the heroku.yml since the last `heroku:setup`, then no heroku changes will be sent.
 
 
 ## Usage
@@ -105,6 +107,9 @@ is additive, you can easily select which servers to run a command on.
 
     rake <app_name>:demo <app_name>:staging heroku:restart
 
+Additionally all commands will be execute in parallel, this is done by forking the process for each 
+heorku app.
+
 A special rake task 'all' is created that causes any further commands to
 execute on all heroku apps (Note: Any environment labeled `production` will not
 be included, you must explicitly state it).
@@ -114,23 +119,29 @@ that causes any further commands to execute on all heroku apps.
 
     rake all:production heroku:info
 
-Need to add remotes for each app?
+Need to add new config ENV variables across all apps?
 
-    rake all heroku:remotes
+    rake all heroku:setup:config
+
+Need to add a new collaborator/team member across all apps?
+
+    rake all heroku:setup:collaborators
 
 A full list of tasks provided:
 
     rake all                        # Select all non Production Heroku apps for later command
     rake all:production             # Select all Production Heroku apps for later command
-    rake heroku:deploy              # Deploys, migrates and restarts latest code.
+
+    rake heroku:deploy              # Deploys latest code, run heroku:setup, turns on maintenance, migrates, scale/restarts and turns off maintenance
     rake heroku:apps                # Lists configured apps
     rake heroku:info                # Queries the heroku status info on each app
-    rake heroku:console             # Opens a remote console
-    rake heroku:capture             # Captures a bundle on Heroku
-    rake heroku:remotes             # Add git remotes for all apps in this project
-    rake heroku:migrate             # Migrates and restarts remote servers
+    rake heroku:exec                # Execute command on the heroku app (e.g. rake task)
+    rake heroku:command             # Execute command on the heroku app (e.g. rake task) 
     rake heroku:restart             # Restarts remote servers
     rake heroku:scale               # Scales heroku processes
+    rake heroku:logs                # Shows the Heroku logs
+    rake heorku:maintenance:on      # Turn maintenance on
+    rake heorku:maintenance:off     # Turn maintenance off
 
     rake heroku:setup               # runs all heroku setup scripts
     rake heroku:setup:addons        # sets up the heroku addons
@@ -139,24 +150,42 @@ A full list of tasks provided:
     rake heroku:setup:domains       # sets up the heroku domains
     rake heroku:setup:stacks        # sets the correct stack for each heroku app
 
-    rake heroku:db:setup            # Migrates and restarts remote servers
+    rake heroku:db:migrate          # Migrates and restarts remote servers
 
 You can easily alias frequently used tasks within your application's Rakefile:
 
     task :deploy =>  ["heroku:deploy"]
-    task :console => ["heroku:console"]
-    task :capture => ["heroku:capture"]
 
 With this in place, you can be a bit more terse:
 
-    rake all:staging console
     rake all deploy
+
+### Sample Output
+
+    rake v2:development v2:production heroku:setup
+
+All output/response now are labeled with the heroku app name and a font color.
+    
+    Load heroku-rails-saas rake task
+    [ v2-production ] Setting collaborators... 
+    [ v2-dev ] Setting collaborators... 
+    [ v2-dev ] Deleting collaborator(s):
+    [ v2-dev ]  chris@synctv.com
+    [ v2-dev ] Setting config... 
+    [ v2-production ] Setting config... 
+    [ v2-production ] Setting addons... 
+    [ v2-dev ] Setting addons... 
+    [ v2-production ] Deleting addon(s):
+    [ v2-production ]   RandomAddon:dev
+    [ v2-production ] Setting domains... 
+    [ v2-dev ] Setting domains... 
 
 ### Deploy Hooks
 
 You can easily hook into the deploy process by defining any of the following rake tasks.
 
-When you ran `rails generate heroku:config`, it created a list of empty rake tasks within lib/tasks/heroku.rake. Edit these rake tasks to provide custom logic for before/after deployment.
+When you ran `rails generate heroku:config`, it created a list of empty rake tasks within lib/tasks/heroku.rake.Edit these rake tasks to provide custom logic for before/after deployment.
+Typically these are use to notify your monitoring service of a deployment or run one of rake task to update your database. 
 
     namespace :heroku do
       # runs before all the deploys complete
@@ -223,5 +252,3 @@ Heroku Rails is a fork and rewrite/reorganiziation of the heroku_sans gem. Herok
 ### Heroku Sans License
 
 License:: Copyright (c) 2009 Elijah Miller <elijah.miller@gmail.com>, released under the MIT license.
-
-

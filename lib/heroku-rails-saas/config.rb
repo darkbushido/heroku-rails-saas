@@ -1,9 +1,9 @@
 require 'active_support/core_ext/object/try'
+require 'active_support/core_ext/hash/deep_merge'
 require 'erb'
 
 module HerokuRailsSaas
   class Config
-
     SEPERATOR = ":"
 
     class << self
@@ -15,7 +15,7 @@ module HerokuRailsSaas
         @heroku_rails_root = root
       end
 
-      def app_name(app, env)
+      def local_name(app, env)
         "#{app}#{SEPERATOR}#{env}"
       end
 
@@ -27,8 +27,7 @@ module HerokuRailsSaas
       def extract_name_from(app_env)
         name, env = app_env.split(SEPERATOR)
         name
-      end
-      
+      end      
     end
 
     attr_accessor :settings
@@ -44,22 +43,10 @@ module HerokuRailsSaas
     def app_names
       apps.keys
     end
-
-    def cmd(app_env)
-      if self.stack(app_env) =~ /cedar/i
-        'heroku run '
-      else
-        'heroku '
-      end
-    end
-
-    def rails_cli script
-      Rails::VERSION::MAJOR < 3 ? ".script/#{script}" : "rails #{script}"
-    end
     
-    # Returns the app name on heroku froma string format like so: `app:env`
+    # Returns the app name on heroku from a string format like so: `app:env`
     # Allows for `rake <app:env> [<app:env>] <command>`
-    def app_name_on_heroku(string)
+    def heroku_app_name(string)
       app_name, env = string.split(SEPERATOR)
       apps[app_name][env]
     end
@@ -67,7 +54,9 @@ module HerokuRailsSaas
     # return all enviromnets in this format app:env
     def app_environments(env_filter="")
       apps.each_with_object([]) do |(app, hsh), arr|
-        hsh.each { |env, app_name| arr << self.class.app_name(app, env) if (env_filter.nil? || env_filter.empty?) || env == env_filter }
+        hsh.each do |env, app_name| 
+          arr << self.class.local_name(app, env) if(env_filter.nil? || env_filter.empty? || env == env_filter)
+        end
       end
     end
 
@@ -103,7 +92,6 @@ module HerokuRailsSaas
       app_setting_hash("scale", app_env)
     end
 
-
     # return a list of collaborators for a particular app environment
     def collaborators(app_env)
       app_setting_array('collaborators', app_env)
@@ -111,18 +99,33 @@ module HerokuRailsSaas
 
     # return a list of addons for a particular app environment
     def addons(app_env)
-      app_setting_array('addons', app_env)
+      all_addons = app_setting_array('addons', app_env)
+
+      # Replace default addons tier with app specific ones.
+      addons = all_addons.each_with_object({}) do |addon, hash|
+        name, tier = addon.split(":")
+        hash[name] = tier
+      end
+
+      addons.to_a.map { |key_value| key_value.join(":") }
     end
 
-    private
+    # return the region for a particular app environment
+    def region(app_env)
+      name, env = app_env.split(SEPERATOR)
+      stacks = self.settings['region'] || {}
+      stacks[name].try("[]", env) || stacks['all']
+    end
 
+  private
     # Add app specific settings to the default ones defined in all for an array listing
     def app_setting_array(setting_key, app_env)
       name, env = app_env.split(SEPERATOR)
       setting = self.settings[setting_key] || {}
       default = setting['all'] || []
 
-      app_settings = setting[name].try("[]", env) || []
+      app_settings = Array.wrap(setting[name].try("[]", env))
+
       (default + app_settings).uniq
     end
 
@@ -159,9 +162,9 @@ module HerokuRailsSaas
     end
 
     def aggregate_heroku_configs(config_files)
-      hsh = config_files[:apps].each_with_object({}) { |file, h| h.rmerge!(parse_yml(file, :apps)) }
+      configs = config_files[:apps].each_with_object({}) { |file, h| h.deep_merge!(parse_yml(file, :apps)) }
       # overwrite all configs with the environment specific ones
-      hsh.rmerge!(parse_yml(config_files[:default], :default))
+      configs.deep_merge!(parse_yml(config_files[:default], :default))
     end
   end
 end

@@ -1,5 +1,26 @@
 Heroku Rails SaaS
 
+v1.0.0
+============================================
+Major changes!
+
+* Instead of using subprocess system such as `heroku info`, using the heroku-api gem
+* Running commands across multiple heroku app are now executed in parallel
+* Add region support
+* All output/response are now labeled (prepend) with the heroku app and assigned a font color
+* heroku:deploy now run heroku:setup to ensure the app is consistent with the current code base
+* heroku:logs now support mulitple heroku apps
+* heroku:scale correctly scales an environment in this order: 1. web 2. worker 3. clock
+* heroku:addons can handle addons with different tier, previously an addon on both the default configuration and app specific one will conflict and raise and error
+* heroku:setup:config use 'DELETE' as a marker to indication removal of the configuration key
+* heroku:setup will now report the deltas of any changed settings
+* Deprecated system_with_echo in favor of HEROKU_RUNNER#exec
+* Removed heroku:remotes
+* Removed heroku:console till we can make it work in parallel
+* Removed heroku:db:pull heroku:db:reset heroku:db:copy
+* Added HEROKU_RUNNER#labelize for deploy hooks
+* Update specs and README to reflect the new changes
+
 v0.4.3
 ============================================
 Forking Gem to Add support for multiple apps/environments to be run off the same rails code base
