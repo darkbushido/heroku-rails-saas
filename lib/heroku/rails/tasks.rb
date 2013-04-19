@@ -39,13 +39,13 @@ end
 end
 
 namespace :heroku do
-  desc 'Add git remotes for all apps in this project'
-  task :remotes do
-    HEROKU_RUNNER.all_environments
-    HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
-      system("git remote add #{app_name} #{repo}")
-    end
-  end
+  # desc 'Add git remotes for all apps in this project'
+  # task :remotes do
+  #   HEROKU_RUNNER.all_environments
+  #   HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
+  #     system("git remote add #{app_name} #{repo}")
+  #   end
+  # end
 
   desc 'Lists configured apps'
   task :apps do
@@ -78,10 +78,10 @@ namespace :heroku do
     HEROKU_RUNNER.scale
   end
 
-  desc "Opens a remote console"
-  task :console do
-    HEROKU_RUNNER.console
-  end
+  # desc "Opens a remote console"
+  # task :console do
+  #   HEROKU_RUNNER.console
+  # end
 
   desc "Shows the Heroku logs"
   task :logs do
@@ -94,7 +94,7 @@ namespace :heroku do
       HEROKU_RUNNER.maintenance(true)
     end
 
-    desc "Tuff maintenance mode off"
+    desc "Turn maintenance mode off"
     task :off do
       HEROKU_RUNNER.maintenance(false)
     end

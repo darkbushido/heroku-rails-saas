@@ -2,7 +2,6 @@
 # ### e.g. rake deploy (instead of rake heroku:deploy)
 # ###
 # task :deploy =>  ["heroku:deploy"]
-# task :console => ["heroku:console"]
 # task :setup =>   ["heroku:setup"]
 # task :logs =>    ["heroku:logs"]
 # task :restart => ["heroku:restart"]
