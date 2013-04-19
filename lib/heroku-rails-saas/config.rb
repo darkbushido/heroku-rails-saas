@@ -128,9 +128,15 @@ module HerokuRailsSaas
       setting = self.settings[setting_key] || {}
       default = setting['all'] || []
 
-      # app_settings = setting[name].try("[]", env) || []
       app_settings = Array.wrap(setting[name].try("[]", env))
-      (default + app_settings).uniq
+
+      # Replace default addons tier with app specific ones.
+      addons = (default + app_settings).uniq.each_with_object({}) do |addon, hash|
+        name, tier = addon.split(":")
+        hash[name] = tier
+      end
+
+      addons.to_a.map { |key_value| key_value.join(":") }
     end
 
     # Add app specific settings to the default ones defined in all for a hash listing
