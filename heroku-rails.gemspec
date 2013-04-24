@@ -21,4 +21,5 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency "parallel", "~> 0.6.2"
   gem.add_runtime_dependency "rendezvous", "~> 0.0.2"
   gem.add_development_dependency "rspec", "~> 2.0"
+  gem.add_development_dependency "webmock", "~> 1.11.0"
 end

@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    heroku-rails-saas (1.0.0)
+    heroku-rails-saas (1.0.1)
       heroku-api (~> 0.3.8)
       netrc (~> 0.7.7)
       parallel (~> 0.6.2)
@@ -38,10 +38,12 @@ GEM
     activesupport (3.2.3)
       i18n (~> 0.6)
       multi_json (~> 1.0)
+    addressable (2.3.4)
     arel (3.0.2)
     awesome_print (1.0.2)
     builder (3.0.4)
     columnize (0.3.6)
+    crack (0.3.2)
     debugger (1.5.0)
       columnize (>= 0.3.1)
       debugger-linecache (~> 1.2.0)
@@ -110,6 +112,9 @@ GEM
       polyglot
       polyglot (>= 0.3.1)
     tzinfo (0.3.35)
+    webmock (1.11.0)
+      addressable (>= 2.2.7)
+      crack (>= 0.3.2)
 
 PLATFORMS
   ruby
@@ -122,3 +127,4 @@ DEPENDENCIES
   rake
   rdoc (~> 3.12)
   rspec
+  webmock (~> 1.11.0)
