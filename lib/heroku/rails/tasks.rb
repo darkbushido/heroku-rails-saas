@@ -55,7 +55,7 @@ namespace :heroku do
 
   desc "Run command on the heroku app (e.g. rake task)"
   task :exec, :command do |t, args|
-    HEROKU_RUNNER.run(args[:command])
+    HEROKU_RUNNER.exec_on_all(args[:command])
   end
 
   desc "Get remote server information on the heroku app"
