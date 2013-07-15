@@ -144,6 +144,7 @@ module HerokuRailsSaas
             _setup_config(local_name, remote_name)
             _migrate(remote_name)
             _scale(local_name, remote_name)
+            _formation(local_name, remote_name)
             _restart(remote_name)
             _maintenance(false, remote_name)
           end
@@ -168,13 +169,25 @@ module HerokuRailsSaas
 
     def exec_on_all(command)
       each_heroku_app do |_, remote_name|
-        exec(remote_name, command)
+        async_exec(remote_name, command)
       end
     end
 
-    def exec(remote_name, command)
+    # Triggers an one-off process.
+    def async_exec(remote_name, command)
       result = heroku.post_ps(remote_name, command)
-      @displayer.labelize(Helper.green(result["command"]))
+      @displayer.labelize("[async] " + Helper.green(result["command"]))
+    end
+
+    # Triggers an one-off process and waits for the job to complete.
+    def sync_exec(remote_name, command)
+      result = heroku.post_ps(remote_name, command)
+      process_id = result["id"]
+      @displayer.labelize("[sync] " + Helper.green(result["command"]))
+      begin
+        sleep 1
+        running_process_ids = heroku.get_ps(remote_name).map { |ps| ps["id"] }
+      end while running_process_ids.include?(process_id)
     end
 
     def apps
@@ -238,6 +251,12 @@ module HerokuRailsSaas
     def scale
       each_heroku_app do |local_name, remote_name|
         _scale(local_name, remote_name)
+      end
+    end
+
+    def formation
+      each_heroku_app do |local_name, remote_name|
+        _formation(local_name, remote_name)
       end
     end
 
@@ -342,14 +361,14 @@ module HerokuRailsSaas
       add_configs = local_configs.delete_if do |key, value| 
         if value == CONFIG_DELETE_MARKER
           delete_config_keys << key
-        elsif remote_configs.has_key?(key) && remote_configs[key] == value
+        elsif remote_configs.has_key?(key) && remote_configs[key] == value.to_s
           true
         end 
       end
 
       perform_delete = delete_config_keys.present? && 
                        remote_configs.keys.any? { |key| delete_config_keys.include?(key) }
-      
+
       if add_configs.present?
         @displayer.labelize("Adding config(s):")
         add_configs.each do |key, value|
@@ -399,7 +418,7 @@ module HerokuRailsSaas
     end
 
     def _migrate(remote_name)
-      exec(remote_name, "rake db:migrate")
+      sync_exec(remote_name, "rake db:migrate")
     end
 
     def _scale(local_name, remote_name)
@@ -411,6 +430,13 @@ module HerokuRailsSaas
       types << types.delete("clock")
       types.each { |type| heroku.post_ps_scale(remote_name, type, scaling[type]) }
       @displayer.labelize("Scaling ... #{Helper.green('OK')}")
+    end
+
+    def _formation(local_name, remote_name)
+      formation = @config.formation(local_name)
+      formation.each { |key, value| formation[key] = "#{value}X" }
+      heroku.put_formation(remote_name, formation)
+      @displayer.labelize("Formation... #{Helper.green('OK')}")
     end
 
     def _logs(remote_name)
