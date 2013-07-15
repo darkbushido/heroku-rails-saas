@@ -55,7 +55,7 @@ namespace :heroku do
 
   desc "Run command on the heroku app (e.g. rake task)"
   task :exec, :command do |t, args|
-    HEROKU_RUNNER.run(args[:command])
+    HEROKU_RUNNER.exec_on_all(args[:command])
   end
 
   desc "Get remote server information on the heroku app"
@@ -76,6 +76,11 @@ namespace :heroku do
   desc "Scales heroku processes"
   task :scale do
     HEROKU_RUNNER.scale
+  end
+
+  desc "Resize heroku processes"
+  task :resize do
+    HEROKU_RUNNER.formation
   end
 
   # desc "Opens a remote console"
@@ -183,7 +188,6 @@ namespace :heroku do
     # task :copy, [:source] => :reset do |t, args|
     #   HEROKU_RUNNER.each_heroku_app do |heroku_env, app_name, repo|
     #     raise "missing source" unless HEROKU_CONFIG.app_name_on_heroku(args.source)
-          
     #     unless heroku_env[HEROKU_RUNNER.regex_for(:production)]
     #       source_app_name = HEROKU_CONFIG.app_name_on_heroku(args.source)
     #       system_with_echo "heroku pgbackups:restore DATABASE_URL `heroku pgbackups:url --app #{source_app_name}` --app #{app_name} --confirm #{app_name}"

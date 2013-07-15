@@ -1,8 +1,8 @@
 PATH
   remote: .
   specs:
-    heroku-rails-saas (0.1.7)
-      heroku-api (~> 0.3.8)
+    heroku-rails-saas (1.0.3)
+      heroku-api (~> 0.3.13)
       netrc (~> 0.7.7)
       parallel (~> 0.6.2)
       rails
@@ -38,10 +38,12 @@ GEM
     activesupport (3.2.3)
       i18n (~> 0.6)
       multi_json (~> 1.0)
+    addressable (2.3.4)
     arel (3.0.2)
     awesome_print (1.0.2)
     builder (3.0.4)
     columnize (0.3.6)
+    crack (0.3.2)
     debugger (1.5.0)
       columnize (>= 0.3.1)
       debugger-linecache (~> 1.2.0)
@@ -50,9 +52,9 @@ GEM
     debugger-ruby_core_source (1.2.0)
     diff-lcs (1.1.3)
     erubis (2.7.0)
-    excon (0.20.1)
-    heroku-api (0.3.9)
-      excon (~> 0.20.1)
+    excon (0.25.1)
+    heroku-api (0.3.13)
+      excon (~> 0.25.0)
     hike (1.2.1)
     i18n (0.6.0)
     journey (1.0.4)
@@ -64,7 +66,7 @@ GEM
     mime-types (1.19)
     multi_json (1.3.4)
     netrc (0.7.7)
-    parallel (0.6.4)
+    parallel (0.6.5)
     polyglot (0.3.3)
     rack (1.4.1)
     rack-cache (1.2)
@@ -110,6 +112,9 @@ GEM
       polyglot
       polyglot (>= 0.3.1)
     tzinfo (0.3.35)
+    webmock (1.11.0)
+      addressable (>= 2.2.7)
+      crack (>= 0.3.2)
 
 PLATFORMS
   ruby
@@ -122,3 +127,4 @@ DEPENDENCIES
   rake
   rdoc (~> 3.12)
   rspec
+  webmock (~> 1.11.0)

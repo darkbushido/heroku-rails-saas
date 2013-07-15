@@ -16,9 +16,10 @@ Gem::Specification.new do |gem|
   gem.extra_rdoc_files  = ["LICENSE", "README.md", "TODO", "CHANGELOG"]
 
   gem.add_runtime_dependency "rails"
-  gem.add_runtime_dependency "heroku-api", "~> 0.3.8"
+  gem.add_runtime_dependency "heroku-api", "~> 0.3.13"
   gem.add_runtime_dependency "netrc", "~> 0.7.7"
   gem.add_runtime_dependency "parallel", "~> 0.6.2"
   gem.add_runtime_dependency "rendezvous", "~> 0.0.2"
   gem.add_development_dependency "rspec", "~> 2.0"
+  gem.add_development_dependency "webmock", "~> 1.11.0"
 end

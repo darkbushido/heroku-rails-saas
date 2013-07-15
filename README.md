@@ -49,6 +49,10 @@ For all configuration settings
       web: 1
       worker: 0
 
+    formation:
+      web: 1
+      worker: 2
+
 For an app specific settings awesomeapp
 
     apps:
