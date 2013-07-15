@@ -78,6 +78,11 @@ namespace :heroku do
     HEROKU_RUNNER.scale
   end
 
+  desc "Resize heroku processes"
+  task :resize do
+    HEROKU_RUNNER.formation
+  end
+
   # desc "Opens a remote console"
   # task :console do
   #   HEROKU_RUNNER.console

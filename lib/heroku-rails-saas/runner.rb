@@ -144,6 +144,7 @@ module HerokuRailsSaas
             _setup_config(local_name, remote_name)
             _migrate(remote_name)
             _scale(local_name, remote_name)
+            _formation(local_name, remote_name)
             _restart(remote_name)
             _maintenance(false, remote_name)
           end
@@ -250,6 +251,12 @@ module HerokuRailsSaas
     def scale
       each_heroku_app do |local_name, remote_name|
         _scale(local_name, remote_name)
+      end
+    end
+
+    def formation
+      each_heroku_app do |local_name, remote_name|
+        _formation(local_name, remote_name)
       end
     end
 
@@ -423,6 +430,13 @@ module HerokuRailsSaas
       types << types.delete("clock")
       types.each { |type| heroku.post_ps_scale(remote_name, type, scaling[type]) }
       @displayer.labelize("Scaling ... #{Helper.green('OK')}")
+    end
+
+    def _formation(local_name, remote_name)
+      formation = @config.formation(local_name)
+      formation.each { |key, value| formation[key] = "#{value}X" }
+      heroku.put_formation(remote_name, formation)
+      @displayer.labelize("Formation... #{Helper.green('OK')}")
     end
 
     def _logs(remote_name)

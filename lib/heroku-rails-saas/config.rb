@@ -92,6 +92,11 @@ module HerokuRailsSaas
       app_setting_hash("scale", app_env)
     end
 
+     # pull out the formation setting hash for a particular app environment
+    def formation(app_env)
+      app_setting_hash("formation", app_env)
+    end
+
     # return a list of collaborators for a particular app environment
     def collaborators(app_env)
       app_setting_array('collaborators', app_env)

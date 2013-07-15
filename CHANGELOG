@@ -1,10 +1,16 @@
 Heroku Rails SaaS
 
-v1.0.1
+v1.0.3
+============================================
+Add formation settings for 2X dyno size support from heroku-api
+Add rake task heroku:resize
+
+
+v1.0.2
 ============================================
 Fix error when setting configuration due to value being an integer instead of a string
 Add #sync_exec and #async_exec, previous all #exec where async. #sync_exec allows us to control the order of execution
-Fix error when configuation for addons because it do not consider a:ddon tiers
+Fix error when configuation for addons because it do not consider addon tiers
 
 v1.0.0
 ============================================
